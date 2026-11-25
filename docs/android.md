@@ -10,7 +10,9 @@ Open **Set up models**, add a provider key or an OpenAI-compatible endpoint, and
 
 Use the paperclip to copy selected files into LearnHarness and insert their references in the session. A selection can contain up to 32 files and 25 MB in total. The original files remain in their provider. Android's clear-storage and uninstall commands remove the learning profile and those copies.
 
-Desktop-only features include the Claude Code CLI integration, the Electron browser used to verify interactive demos, and the in-app desktop updater. PDF page rasterization uses the ARM64 build of the canvas library. Android uses the same key-based provider configuration as the web app. Provider subscription sign-in has not been verified on Android.
+Use **Connect** next to ChatGPT in **Settings → Providers** to open sign-in in the system browser. Return to LearnHarness after the browser confirms sign-in.
+
+Desktop-only features include the Claude Code CLI integration, the Electron browser used to verify interactive demos, and the in-app desktop updater. PDF page rasterization uses the ARM64 build of the canvas library.
 
 ## Build an APK
 

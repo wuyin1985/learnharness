@@ -66,6 +66,30 @@ test("Electron dev uses its narrow external-browser bridge, without attempting a
 	await createWebChatGPTBridge(null).login(); assert.deepEqual(opened, [action]);
 });
 
+test("Android navigates to the same-origin sign-in action without a blank WebView popup", async () => {
+	const originalLocation = Object.getOwnPropertyDescriptor(globalThis, "location");
+	const navigations: string[] = [];
+	document.documentElement.classList.add("lh-android");
+	Object.defineProperty(globalThis, "location", {
+		configurable: true, value: { assign: (target: string) => { navigations.push(target); } },
+	});
+	try {
+		window.open = () => assert.fail("Android must not reserve a WebView popup");
+		const pending = { available: true, pending: true, allowBackgroundUse: true, activeId: null, accounts: [], error: null };
+		globalThis.fetch = async () => Response.json({ value: pending, browserAction: action });
+		const bridge = createWebChatGPTBridge(null);
+		assert.deepEqual(await bridge.login(), pending);
+		assert.deepEqual(navigations, [action]);
+		globalThis.fetch = async () => Response.json({ value: pending, browserAction: "https://example.invalid/authorize" });
+		await assert.rejects(bridge.login(), /Invalid sign-in action/);
+		assert.deepEqual(navigations, [action]);
+	} finally {
+		document.documentElement.classList.remove("lh-android");
+		if (originalLocation) Object.defineProperty(globalThis, "location", originalLocation);
+		else Reflect.deleteProperty(globalThis, "location");
+	}
+});
+
 test("web notices identify the server machine and same-machine ChatGPT sign-in; desktop copy stays unchanged", async () => {
 	const { CHATGPT_NOTICE, chatGPTNotice } = await import("../components/settings/chatgpt-connection.tsx");
 	const { subscriptionNotice, subscriptionDisconnectCopy } = await import("../components/settings/subscription-connections.tsx");

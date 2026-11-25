@@ -26,9 +26,12 @@ function onChange(hub: Hub, listener: () => void): () => void {
 }
 /** Reserve the new tab synchronously in the click gesture. Only a one-use
  * same-origin action URL enters app JS; provider URLs remain in the owner.
- * Electron dev has no tabs: its narrow main-process opener performs this step. */
+ * Electron dev uses its main-process opener. Android hands the redirect to
+ * the system browser from the same WebView that initiated sign-in. */
 async function withBrowser<T>(action: () => Promise<Reply<T>>): Promise<T> {
-	const external = window.lh?.subscriptionTransport === "web" ? window.lh.openSubscriptionBrowser : undefined;
+	const desktopOpener = window.lh?.subscriptionTransport === "web" ? window.lh.openSubscriptionBrowser : undefined;
+	const android = document.documentElement.classList.contains("lh-android");
+	const external = desktopOpener ?? (android ? (target: string) => window.location.assign(target) : undefined);
 	const tab = external ? null : window.open("about:blank", "_blank");
 	if (!external && !tab) throw new Error("Allow a sign-in tab to open, then try again.");
 	if (tab) tab.opener = null;
