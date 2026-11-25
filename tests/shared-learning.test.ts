@@ -68,6 +68,7 @@ test("the shared gateway pairs once, streams the local engine, and preserves aut
 	try {
 		gateway = await launch();
 		assert.equal((await send(port, "/")).headers.location, "/_lh-share/login");
+		assert.equal((await send(port, "/_lh-share/login")).headers["referrer-policy"], "same-origin");
 		assert.equal((await send(port, "/api/chats", "GET", { "x-learnharness-desktop": secret })).status, 401);
 		assert.equal(calls.length, 0);
 		const code = gateway.makeCode();
@@ -78,7 +79,12 @@ test("the shared gateway pairs once, streams the local engine, and preserves aut
 		const loginCookie = signIn.headers["set-cookie"]?.[0];
 		assert.ok(loginCookie);
 		assert.match(loginCookie, /HttpOnly; Secure; SameSite=Strict/);
-		assert.equal((await send(port, "/_lh-share/login", "POST", headers, `code=${code}`)).status, 401);
+		const reused = await send(port, "/_lh-share/login", "POST", headers, `code=${code}`);
+		assert.equal(reused.status, 303);
+		assert.equal(reused.headers.location, "/_lh-share/login?retry=1");
+		const retry = await send(port, reused.headers.location);
+		assert.equal(retry.status, 200);
+		assert.match(retry.body, /code is invalid or expired/);
 		const session = { cookie: loginCookie.split(";", 1)[0] };
 		assert.equal((await send(port, "/api/keys", "GET", session)).status, 403);
 		assert.equal((await send(port, "/api/settings/agent", "PUT", { ...session, ...headers })).status, 403);

@@ -7,8 +7,8 @@
  * This script finishes the job and sanity-checks the result — including
  * the exclusion that keeps the repo's real data/ OUT of the bundle
  * (see next.config.ts outputFileTracingExcludes). It also removes exact
- * build-only paths the tracer sweeps in: plugin authoring projects,
- * old installers and the development Electron runtime. Broad trace exclusions break externals.
+ * build-only paths the tracer sweeps in, including native Android build
+ * outputs. Broad trace exclusions break externals.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -83,15 +83,30 @@ try {
 // Ship the complete portable skill plus its static ZIP; no application toolchain.
 buildPluginAuthoring({ root: ROOT, standalone: true });
 
+// The Windows installer materializes Turbopack's external-module junction.
+// Its original npm neighbors must also be resolvable from the new location.
+const relocatedModules = path.join(STANDALONE, ".next", "node_modules");
+if (exists(relocatedModules) && fs.readdirSync(relocatedModules).some(name => name.startsWith("shiki-"))) {
+	const dependencies = ["core", "engine-javascript", "engine-oniguruma", "langs", "themes", "types"];
+	const scopedSource = path.join(ROOT, "node_modules", "@streamdown", "code", "node_modules", "@shikijs");
+	const scopedTarget = path.join(relocatedModules, "@shikijs");
+	fs.mkdirSync(scopedTarget, { recursive: true });
+	for (const dependency of dependencies) {
+		const nested = path.join(scopedSource, dependency);
+		const source = exists(nested) ? nested : path.join(ROOT, "node_modules", "@shikijs", dependency);
+		copyTree(source, path.join(scopedTarget, dependency));
+	}
+}
+
 // 2c) Payload curation (2026-10-11): the trace sweep can copy repo-root
-// plugins/ (authoring sources/tests), dist/ (previous installers), and the development Electron
+// plugins/ (authoring sources/tests), android/ (native builds), dist/ (previous installers), and the development Electron
 // runtime (the demo helper's dev-only require). Neither belongs in the
 // server: packaged helpers use process.execPath, the app's own binary.
 // Remove ONLY these standalone-root paths AFTER tracing — excluding a
 // generic dist/** earlier broke pi-ai / pi-agent-core's runtime dist/.
 // Never touch ROOT/dist or ROOT/node_modules/electron (the running app
 // and the build runtime); native canvas/resvg packages stay untouched.
-for (const extra of ["plugins", "dist", path.join("node_modules", "electron")]) {
+for (const extra of ["plugins", "dist", "android", path.join("node_modules", "electron")]) {
 	const target = path.join(STANDALONE, extra);
 	if (exists(target)) {
 		fs.rmSync(target, { recursive: true, force: true });

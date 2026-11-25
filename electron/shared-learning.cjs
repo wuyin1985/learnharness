@@ -26,6 +26,9 @@ const PRIVATE_HEADERS = {
 };
 const LOGIN_HEADERS = {
 	...PRIVATE_HEADERS,
+	// Chromium uses the form's referrer policy when populating the POST
+	// Origin. Keep the same-origin value so the gateway can verify it.
+	"referrer-policy": "same-origin",
 	"content-type": "text/html; charset=utf-8",
 	"content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 };
@@ -109,7 +112,7 @@ function reply(res, status, body = "", headers = {}) {
 }
 
 function loginPage(res, error = "") {
-	reply(res, error ? 401 : 200, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LearnHarness sign-in</title>
+	reply(res, 200, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LearnHarness sign-in</title>
 <style>html{color-scheme:light dark}body{margin:8vh auto;padding:24px;max-width:28rem;font:16px/1.5 system-ui}label,input,button{display:block}input,button{box-sizing:border-box;width:100%;padding:12px;margin:8px 0;font:inherit}input{border:1px solid;border-radius:6px}button{min-height:48px}h1{margin-bottom:8px}</style>
 <h1>LearnHarness</h1><p>Enter the sign-in code from LearnHarness on your PC.</p>${error ? `<p role="alert">${error}</p>` : ""}
 <form method="post" action="${LOGIN}"><label for="code">Sign-in code</label><input id="code" name="code" type="password" maxlength="64" autocapitalize="off" autocomplete="off" required><button type="submit">Connect</button></form></html>`, LOGIN_HEADERS);
@@ -184,11 +187,14 @@ async function startSharedLearning(config, { upstream, desktopSecret, signingKey
 			return reply(res, 403, "Use the shared LearnHarness address to submit requests.");
 		}
 		if (pathname === LOGIN) {
-			if (req.method === "GET") return loginPage(res);
+			if (req.method === "GET") {
+				const invalid = new URL(req.url, config.origin).searchParams.get("retry") === "1";
+				return loginPage(res, invalid ? "This code is invalid or expired. Generate a new code on your PC." : "");
+			}
 			if (req.method !== "POST") return reply(res, 405, "Method not allowed.");
 			const submitted = await readCode(req);
 			if (!submitted || !codeDigest || Date.now() >= codeExpires || ++attempts > 8 || !timingSafeEqual(codeDigest, digest(submitted))) {
-				return loginPage(res, "This code is invalid or expired. Generate a new code on your PC.");
+				return bounce(res, `${LOGIN}?retry=1`);
 			}
 			codeDigest = null;
 			const value = `${Math.floor(Date.now() / 1000) + SESSION_TTL}.${randomBytes(18).toString("base64url")}`;
