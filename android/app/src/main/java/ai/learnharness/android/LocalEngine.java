@@ -80,6 +80,9 @@ final class LocalEngine {
             builder.directory(runtime).redirectErrorStream(true);
             Map<String, String> env = builder.environment();
             env.put("LD_LIBRARY_PATH", libraries.getAbsolutePath());
+            // Android's linker exposes N-API symbols to addons through its
+            // global group, which includes libraries loaded by LD_PRELOAD.
+            env.put("LD_PRELOAD", new File(libraries, "libnode.so").getAbsolutePath());
             env.put("LH_ANDROID_PARENT_PID", Integer.toString(android.os.Process.myPid()));
             env.put("LH_ANDROID_TOKEN", token);
             env.put("LH_ANDROID_PORT", Integer.toString(preferences.getInt("port", 0)));

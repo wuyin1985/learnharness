@@ -10,5 +10,6 @@ int main(int argc, char** argv) {
         || getppid() != strtol(parent, nullptr, 10)) {
         return 1;
     }
+    unsetenv("LD_PRELOAD");
     return node::Start(argc, argv);
 }
