@@ -40,7 +40,11 @@ export function catalogLimits(catalog: Pick<ModelCatalogResponse, "models">): Ma
  * changing the new-session default. Unpicked reads "—" (the
  * no-factory-fallback language: the UI never presents a default model).
  */
-export function ModelControl({ chatId, onModelChange }: { chatId?: string; onModelChange?: (model: string | undefined) => void }) {
+export function ModelControl({ chatId, onModelChange, shortcut }: {
+	chatId?: string;
+	onModelChange?: (model: string | undefined) => void;
+	shortcut?: { open: () => void; trigger: React.RefObject<HTMLButtonElement | null> };
+}) {
 	const { catalog, refresh } = useModelCatalog();
 	const [models, setModels] = useState<ModelsSettings | undefined>();
 	// A successful read with no settings is a legacy session; undefined
@@ -223,14 +227,16 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 	// tab-focus. Both work from any focus, including mid-typing.
 	useEffect(() => {
 		const onOpenPicker = () => {
-			if (!isInputShortcutScopeEligible(containerRef.current, interactions)) return;
+			if (!isInputShortcutScopeEligible(containerRef.current, interactions) &&
+				!isInputShortcutScopeEligible(shortcut?.trigger.current ?? null, interactions)) return;
+			shortcut?.open();
 			setOpen("model");
 			setError(null);
 			refresh(); // mid-session key changes widen the menu (cache fix)
 		};
 		window.addEventListener("lh:kbd-open-model-picker", onOpenPicker);
 		return () => window.removeEventListener("lh:kbd-open-model-picker", onOpenPicker);
-	}, [refresh, interactions]);
+	}, [refresh, interactions, shortcut]);
 
 	useEffect(() => {
 		const onCycleThinking = () => {
@@ -279,9 +285,10 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 			>
 				<ModelPickerPill
 					data-testid="stats-model"
+					aria-label={shortcut ? "Model" : undefined}
 					onClick={() => openMenu("model")}
 					aria-expanded={open === "model"}
-				>{effectiveId ? prettyModel(effectiveId) : "—"}</ModelPickerPill>
+				>{shortcut && <span className="mr-1">Model</span>}{effectiveId ? prettyModel(effectiveId) : "—"}</ModelPickerPill>
 			</Hint>
 			<Hint
 				// "Thinking" + its real shortcut via the registry (owner interlude
@@ -293,12 +300,13 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 			>
 				<ModelPickerPill
 					data-testid="stats-thinking"
+					aria-label={shortcut ? "Thinking" : undefined}
 					onClick={() => {
 						if (entry === undefined) return;
 						openMenu("thinking");
 					}}
 					aria-expanded={open === "thinking"}
-				>{effectiveLevel === undefined ? "—" : (THINKING_LABEL[effectiveLevel] ?? effectiveLevel)}</ModelPickerPill>
+				>{shortcut && <span className="mr-1">Thinking</span>}{effectiveLevel === undefined ? "—" : (THINKING_LABEL[effectiveLevel] ?? effectiveLevel)}</ModelPickerPill>
 			</Hint>
 
 			{/* The shared dropdown body (extracted 2026-09-20): the agent

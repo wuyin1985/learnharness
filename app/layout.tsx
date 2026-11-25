@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import { AppShell, SidebarProvider } from "@/components/sidebar";
+import { AndroidLayoutProvider } from "@/components/android-layout";
 import { ActivityProvider } from "@/components/activity-dock";
 import { ServerEventsProvider } from "@/components/server-events";
 import { AppearanceProvider } from "@/components/settings/appearance";
@@ -42,11 +43,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 			<ServerEventsProvider>
 				<PluginsProvider>
 					<AppearanceProvider initialAppearance={appearance} initialTheme={theme}>
-						<SidebarProvider android={android}>
+						<AndroidLayoutProvider android={android}><SidebarProvider>
 							<ActivityProvider>
 								<AppShell>{children}</AppShell>
 							</ActivityProvider>
-						</SidebarProvider>
+						</SidebarProvider></AndroidLayoutProvider>
 					</AppearanceProvider>
 				</PluginsProvider>
 			</ServerEventsProvider>

@@ -37,7 +37,9 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronDownIcon } from "lucide-react";
 import { HostDialog } from "@/components/host-dialog";
+import { useAndroidLayout } from "@/components/android-layout";
 import { useInteractionLayers } from "@/components/interaction-layers";
 import type React from "react";
 import { type ModelCatalogEntry, type ModelSlotName, type ModelsSettings, CUSTOM_PROVIDER } from "@/src/core";
@@ -259,10 +261,13 @@ export function SetupDialog(props: SetupDialogProps) {
 
 function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 	const controller = useInteractionLayers();
+	const { compact } = useAndroidLayout();
 	const { catalog, failed, refresh } = useModelCatalog();
 	const providerStageSeen = useRef(false);
 	const connectionCloseRequested = useRef(false);
 	const [picked, setPicked] = useState(() => prefillFromSlots(catalog?.models ?? [], catalog?.slots));
+	const [slotChoice, setSlotChoice] = useState<ModelSlotName | null>();
+	const expandedSlot = slotChoice === undefined ? SLOT_ORDER.find(slot => !picked[slot]) ?? "strong" : slotChoice;
 	const [levels, setLevels] = useState(() => prefillLevels(catalog));
 	const editedSlots = useRef(new Set<ModelSlotName>());
 	const [saving, setSaving] = useState(false);
@@ -459,7 +464,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 				{stage === "loading" ? (
 					!failed && <p data-testid="setup-stage-loading" role="status" className="px-6 py-5 text-xs text-muted-foreground">Loading models…</p>
 				) : stage === "keys" ? (
-					<div className="flex flex-col px-6 py-5">{keysBody}</div>
+					<div className="flex min-h-0 flex-col overflow-y-auto px-6 py-5">{keysBody}</div>
 				) : (
 					<div className="flex flex-col gap-4 overflow-y-auto px-6 py-5" data-testid="setup-stage-pickers">
 						{catalog?.models.some((model) => model.provider === "chatgpt") && (
@@ -479,7 +484,19 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 								? available?.filter((m) => m.input.includes("image") || m.provider === CUSTOM_PROVIDER.id)
 								: available;
 							return (
-								<div key={slot} data-testid={`setup-slot-${slot}`} className="flex flex-col gap-1.5">
+								<div key={slot} data-testid={`setup-slot-${slot}`} className="lh-setup-slot flex flex-col gap-1.5">
+									{compact && (
+										<button type="button" data-testid={`setup-expand-${slot}`} aria-expanded={expandedSlot === slot}
+											aria-controls={`lh-setup-controls-${slot}`}
+											onClick={() => { setOpenMenu(null); setSlotChoice(expandedSlot === slot ? null : slot); }}
+											className="flex min-h-12 w-full items-center gap-3 px-3 text-left">
+											<span className="text-sm">{SLOT_META[slot].label}</span>
+											<span className="ml-auto min-w-0 truncate text-xs text-muted-foreground">{entry ? prettyModel(entry.id) : "Choose a model"}</span>
+											<ChevronDownIcon className="size-4 shrink-0" aria-hidden />
+										</button>
+									)}
+									<div id={`lh-setup-controls-${slot}`} hidden={compact && expandedSlot !== slot} className="lh-setup-slot-controls flex flex-col gap-1.5">
+									{!compact && (
 									<span className="flex items-center gap-1.5">
 										<span className="font-ui text-sm text-foreground">{SLOT_META[slot].label}</span>
 										{!catalog?.slots?.[slot]?.model && !picked[slot] && (
@@ -491,6 +508,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 											</span>
 										)}
 									</span>
+									)}
 									<span className="text-xs text-muted-foreground/70">{SLOT_META[slot].roster}</span>
 									{slot !== "strong" && <><ChatGPTBackgroundAccess provider={entry?.provider} /><NativeSubscriptionBackgroundAccess provider={entry?.provider} /></>}
 									<div className="flex items-center gap-2">
@@ -534,6 +552,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 														effectiveProvider={entry?.provider}
 														vision={slot === "vision"}
 														onPick={(m) => {
+															if (compact) setSlotChoice(slot);
 															editedSlots.current.add(slot);
 															setPicked((prev) => ({ ...prev, [slot]: m }));
 															// Auto-populate (chunk 2, owner: "populate
@@ -592,10 +611,11 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 											)}
 										</div>
 									</div>
+									</div>
 								</div>
 							);
 						})}
-						<div className="flex items-center gap-3">
+						<div className="lh-setup-footer flex items-center gap-3">
 							<button
 								type="button"
 								data-testid="setup-save"

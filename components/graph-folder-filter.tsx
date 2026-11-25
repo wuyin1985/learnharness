@@ -133,6 +133,7 @@ export function GraphFolderFilterControl({ organization, listed, selected, onCha
 					)}
 				>
 					<FunnelIcon aria-hidden="true" className={cn("size-4 shrink-0", activeCount > 0 && "text-primary")} />
+					<span className="lh-android-sheet-label hidden">Filter by folder</span>
 					{soleName !== null
 						? <span data-testid="graph-folder-filter-name" className="max-w-40 truncate text-xs">{soleName}</span>
 						: activeCount > 0 && <span className="text-xs tabular-nums">{activeCount}</span>}
@@ -140,7 +141,7 @@ export function GraphFolderFilterControl({ organization, listed, selected, onCha
 			</Hint>
 			{open && (
 				<div ref={panelRef} role="group" aria-label="Show folders" tabIndex={-1} data-testid="graph-folder-filter-panel" style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }}
-					className="absolute left-0 top-full mt-2 flex max-h-[60vh] w-64 flex-col rounded-xl border bg-card/85 p-2 shadow-lg backdrop-blur">
+					className="lh-android-inline-panel absolute left-0 top-full mt-2 flex max-h-[60vh] w-64 flex-col rounded-xl border bg-card/85 p-2 shadow-lg backdrop-blur">
 					<div className="mb-1 flex items-center justify-between gap-2 px-2">
 						<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Show folders</span>
 						{activeCount > 0 && (

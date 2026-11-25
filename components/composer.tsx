@@ -61,6 +61,7 @@ export function ChatSessionComposer({
 	nextProblem,
 	onNext,
 	pendingInput = false,
+	onToolsAnchor,
 }: {
 	busy: boolean;
 	value: string;
@@ -77,6 +78,7 @@ export function ChatSessionComposer({
 	nextProblem?: boolean;
 	onNext?: () => void;
 	pendingInput?: boolean;
+	onToolsAnchor?: (anchor: HTMLDivElement | null) => void;
 }) {
 	const [draft, setDraft] = useState(value);
 	useLayoutEffect(() => { setDraft(value); }, [revision, value]);
@@ -100,6 +102,8 @@ export function ChatSessionComposer({
 			placeholder={placeholder}
 			nextProblem={nextProblem}
 			onNext={onNext}
+			onToolsAnchor={onToolsAnchor}
+			showStopWhileSteering={!!onToolsAnchor}
 		/>
 	);
 }
@@ -119,6 +123,8 @@ export function Composer({
 	onNext,
 	defaultDropTarget = true,
 	fileInsertion = true,
+	onToolsAnchor,
+	showStopWhileSteering = false,
 }: {
 	busy: boolean;
 	value: string;
@@ -147,6 +153,8 @@ export function Composer({
 	/** Neutral plugin composers opt out without changing core defaults. */
 	defaultDropTarget?: boolean;
 	fileInsertion?: boolean;
+	onToolsAnchor?: (anchor: HTMLDivElement | null) => void;
+	showStopWhileSteering?: boolean;
 }) {
 	const controller = useOptionalInteractionLayers();
 	const act = () => {
@@ -160,7 +168,7 @@ export function Composer({
 	return (
 		<form
 			data-testid="composer"
-			className="flex items-end gap-1.5 p-1.5"
+			className="lh-composer-form flex items-end gap-1.5 p-1.5"
 			onSubmit={(e) => {
 				e.preventDefault();
 				act();
@@ -197,7 +205,13 @@ export function Composer({
 				autoFocus={autoFocus}
 				className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
 			/>
-			<AttachFilesButton editorRef={editorRef} />
+			{onToolsAnchor ? <div ref={onToolsAnchor} className="order-first shrink-0" /> : <AttachFilesButton editorRef={editorRef} />}
+			{showStopWhileSteering && busy && canSend && (
+				<button type="button" aria-label="Stop" onClick={onStop}
+					className="flex size-12 shrink-0 items-center justify-center rounded-[10px] bg-secondary text-foreground hover:bg-accent">
+					<SquareIcon className="size-4" aria-hidden />
+				</button>
+			)}
 			{/* The button follows the text (owner report 2026-10-03): while
 				 a turn runs WITH text typed it stays the SEND affordance
 				 (click = steer — steering must be clickable, not Enter-only);

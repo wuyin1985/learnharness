@@ -17,6 +17,8 @@ import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { ComposerActions, NodePickerControl } from "@/components/composer-actions";
 import { OPENING_PROMPT_FAILURE } from "@/components/opening-prompt";
 import { SessionStarter } from "@/components/start-session";
+import { useAndroidLayout } from "@/components/android-layout";
+import { SessionModeSwitch } from "@/components/session-mode-switch";
 import type { ChatSettings, GraphSnapshot } from "@/src/core";
 
 /** The draft's pick set (owner round 10): the SAME shape the home pick
@@ -79,6 +81,7 @@ export function DraftShell({
 	startError = false,
 	setupCta,
 	mode = "teach",
+	onModeChange,
 	picks = [],
 	onOpenPicker,
 	onClearPicks,
@@ -93,6 +96,7 @@ export function DraftShell({
 	 *  created session carries kind:"practice" and the copy changes
 	 *  (the practice agent opens; no probing). */
 	mode?: "teach" | "practice";
+	onModeChange?: (mode: "teach" | "practice") => void;
 	/** The first-run CTA (fix wave chunk B): the same "Set up your models"
 	 *  affordance home carries, rendered above the draft shell — passed by
 	 *  NewSession, which owns the configured state and the SetupDialog. */
@@ -112,6 +116,8 @@ export function DraftShell({
 	overlay?: ReactNode;
 }) {
 	const controller = useOptionalInteractionLayers();
+	const { android, compact } = useAndroidLayout();
+	const [toolsAnchor, setToolsAnchor] = useState<HTMLDivElement | null>(null);
 	const pathname = usePathname();
 	const bodyRef = useRef<HTMLDivElement>(null);
 	const surfaceTarget = usePageSurfaceBoundary({ active: pathname === "/chat/new", viewKey: "/chat/new", bodyRef });
@@ -206,7 +212,8 @@ export function DraftShell({
 										onStop={() => {}}
 										canSend={canSend}
 										inputRef={composerInputRef}
-										autoFocus
+										onToolsAnchor={compact ? setToolsAnchor : undefined}
+										autoFocus={!android}
 										onEscape={dictation.active ? dictation.cancel : undefined}
 										// The opening question, same as the graph view's new-session
 										// input (owner refinement round, 2026-09-24) — no lesson has
@@ -217,6 +224,11 @@ export function DraftShell({
 								</div>
 								<StatsBar
 									dictationSlot={<DictationBar dictation={dictation} />}
+									dictationActive={dictation.active}
+									dictationError={!!dictation.error}
+									toolsAnchor={toolsAnchor}
+									attachmentEditor={composerInputRef}
+									leadingSlot={compact && onModeChange && <SessionModeSwitch mode={mode} onChange={onModeChange} />}
 									turns={[]}
 								/>
 							</div>
@@ -239,8 +251,10 @@ export function DraftShell({
 	);
 }
 
-export function NewSession({ initialConfigured, mode = "teach" }: { initialConfigured: boolean; mode?: "teach" | "practice" }) {
+export function NewSession({ initialConfigured, mode: initialMode = "teach" }: { initialConfigured: boolean; mode?: "teach" | "practice" }) {
 	const router = useRouter();
+	const [modeChoice, setModeChoice] = useState<{ from: "teach" | "practice"; value: "teach" | "practice" }>();
+	const mode = modeChoice?.from === initialMode ? modeChoice.value : initialMode;
 	const [text, setText] = useState("");
 	/* The draft MIRROR ("nothing gets lost" round, 2026-10-01): the shell's
 	 * finish-first send calls THIS send after the dictation flush — which
@@ -337,6 +351,7 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 				onChange={applyText}
 				onSend={send}
 				mode={mode}
+				onModeChange={value => setModeChoice({ from: initialMode, value })}
 				picks={picks}
 				onOpenPicker={openPicker}
 				onClearPicks={() => applyPicks([])}

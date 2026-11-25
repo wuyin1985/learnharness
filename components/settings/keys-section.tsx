@@ -43,6 +43,7 @@ import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { MenuShell } from "@/components/menu-shell";
 import { notifySettingsSaved } from "@/components/settings-signal";
 import { DictationLanguageSetting } from "@/components/dictation-language";
+import { useAndroidLayout } from "@/components/android-layout";
 
 /** One pi-ai provider with plain API-key auth (the Platform seam —
  *  derived from pi-ai's own env-key table; no drift possible). */
@@ -367,9 +368,12 @@ export function KeysSection({
 	 *  while mounted too — the settings dialog's while-open retarget
 	 *  pattern. undefined = nothing seeded. */
 	initialRow,
+	active = true,
 }: {
 	initialRow?: string;
+	active?: boolean;
 }) {
+	const { compact } = useAndroidLayout();
 	const [statuses, setStatuses] = useState<AuthKeyStatus[] | null>(null);
 	const [providers, setProviders] = useState<ProviderKeyInfo[] | undefined>(undefined);
 	const [loading, setLoading] = useState(true);
@@ -389,7 +393,7 @@ export function KeysSection({
 	const editorScopeRef = useRef<HTMLDivElement>(null);
 	useInteractionLayer({
 		kind: "view", rootRef: editorScopeRef,
-		enabled: openRow !== null || adding !== null || addingCustom,
+		enabled: active && (openRow !== null || adding !== null || addingCustom),
 		onClose: () => {
 			setOpenRow(null);
 			setAdding(null);
@@ -576,11 +580,12 @@ export function KeysSection({
 				<SubscriptionConnections />
 			</SettingsGroup>
 
-			<SettingsGroup label="External CLI" testid="group-external-cli">
+			<SettingsGroup label="External CLI" testid="group-external-cli" collapsed={compact ? true : undefined}>
 				<ClaudeCodeInstallationStatus />
 			</SettingsGroup>
 
-			{(["Dictation", "Search"] as const).map((label) => <SettingsGroup key={label} label={label} testid={label === "Dictation" ? "group-dictation" : "group-search"}>
+			{(["Dictation", "Search"] as const).map((label) => <SettingsGroup key={label} label={label} testid={label === "Dictation" ? "group-dictation" : "group-search"}
+				collapsed={compact ? !toolRows.some(status => status.id === initialRow && (label === "Dictation") === (status.id === "DEEPGRAM_API_KEY")) : undefined}>
 				{toolRows.filter((status) => label === "Dictation" ? status.id === "DEEPGRAM_API_KEY" : status.id !== "DEEPGRAM_API_KEY").map((status) => (
 					<KeyTableRow
 						key={status.id}

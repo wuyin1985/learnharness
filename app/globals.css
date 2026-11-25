@@ -176,71 +176,181 @@ body {
 
 .lh-android .lh-closed-toggle,
 .lh-android .lh-closed-toggle > button {
-	width: 44px;
-	height: 44px;
+	width: 48px;
+	height: 48px;
 }
 
 .lh-android .lh-sidebar-content :is([aria-label="Home"], [aria-label="Close sidebar"]) {
-	width: 44px;
-	height: 44px;
+	width: 48px;
+	height: 48px;
 }
 
 .lh-android .lh-sidebar-content :is([data-testid="new-session"], [data-testid="new-session-practice"], [data-testid="settings-entry"]) {
-	min-height: 44px;
+	min-height: 48px;
 }
 
-@media (max-width: 839px) {
-	.lh-android .lh-session-sidebar {
-		position: fixed;
-		inset: 0 auto 0 0;
-		max-width: 88vw;
-	}
-	.lh-android .lh-sidebar-content {
-		width: min(18rem, 88vw);
-	}
+.lh-android-drawer .lh-session-sidebar {
+	position: fixed;
+	inset: 0 auto 0 0;
+	max-width: 88vw;
 }
 
-@media (max-width: 639px) {
-	.lh-android [data-testid="settings-dialog"] {
-		width: 100%;
-		max-width: none;
-		height: 100%;
-		max-height: 100%;
-		border: 0;
-		border-radius: 0;
-	}
-	.lh-android .lh-settings-columns {
-		flex-direction: column;
-	}
-	.lh-android [data-testid="settings-nav"] {
-		width: 100%;
-		flex-direction: row;
-		overflow-x: auto;
-		overflow-y: hidden;
-		border-right: 0;
-		border-bottom: 1px solid var(--color-border);
-	}
-	.lh-android [data-testid="settings-nav"] button {
-		min-height: 44px;
-		white-space: nowrap;
-	}
-	.lh-android [data-testid="settings-nav"] hr {
-		display: none;
-	}
-	.lh-android [data-testid="settings-content"] {
-		min-height: 0;
-	}
-	.lh-android [data-testid="settings-content"] > div > section {
-		padding-inline: 1rem;
-	}
-	.lh-android [data-testid="settings-close"] {
-		width: 44px;
-		height: 44px;
-	}
-	.lh-android [data-testid="setup-backdrop"] [role="dialog"] {
-		max-width: calc(100vw - 16px);
-		max-height: calc(100dvh - 16px);
-	}
+.lh-android-drawer .lh-sidebar-content {
+	width: min(18rem, 88vw);
+}
+
+.lh-android-compact [data-testid="settings-dialog"] {
+	width: 100%;
+	max-width: none;
+	height: 100%;
+	max-height: 100%;
+	border: 0;
+	border-radius: 0;
+	background: var(--color-background);
+}
+
+.lh-android-compact [data-testid="settings-nav"] {
+	width: 100%;
+	border: 0;
+	padding: 0.75rem 1rem;
+}
+
+.lh-android-compact [data-testid="settings-nav"] button {
+	min-height: 48px;
+	border: 1px solid var(--color-border);
+	border-radius: 0.625rem;
+	background: var(--color-card);
+}
+
+.lh-android-compact [data-testid="settings-content"] > div > section {
+	padding-inline: 1rem;
+}
+
+.lh-android-compact [data-testid="settings-close"],
+.lh-android-compact [data-testid="setup-close"] {
+	width: 48px;
+	height: 48px;
+	flex-shrink: 0;
+}
+
+.lh-android-compact [data-testid="setup-dialog"] {
+	max-width: calc(100vw - 16px);
+	max-height: calc(100dvh - 16px);
+}
+
+.lh-android-compact :is(.lh-provider-group[open] > summary, .lh-setup-slot > button[aria-expanded="true"]) > svg {
+	rotate: 180deg;
+}
+
+.lh-android-compact .lh-setup-slot {
+	gap: 0;
+	border: 1px solid var(--color-border);
+	border-radius: 0.625rem;
+}
+
+.lh-android-compact .lh-setup-slot-controls:not([hidden]) {
+	border-top: 1px solid var(--color-border);
+	padding: 0.75rem;
+}
+
+.lh-android-compact .lh-setup-slot-controls button {
+	min-height: 48px;
+	min-width: 0;
+}
+
+.lh-android-compact .lh-setup-footer {
+	position: sticky;
+	z-index: 1;
+	bottom: -1px;
+	background: var(--color-card);
+	padding-block: 0.5rem;
+}
+
+.lh-android-compact [data-testid="section-keys"] > h2 {
+	display: none;
+}
+
+.lh-android-compact [data-testid="section-keys"] > div {
+	margin-top: 0;
+}
+
+.lh-android-compact :is([data-testid="setup-save"], [data-testid="setup-key-provider"], [data-testid="setup-key-save"], [data-testid="add-provider"], [data-testid="subscription-connections"] button) {
+	min-height: 48px;
+}
+
+.lh-android-compact .lh-composer-form > .lh-input {
+	min-width: 0;
+}
+
+.lh-android-compact .lh-composer-form > button {
+	min-width: 48px;
+	min-height: 48px;
+}
+
+.lh-android-compact .lh-composer-stats {
+	flex-wrap: wrap;
+	gap: 0.25rem 0.5rem;
+}
+
+.lh-android-compact .lh-composer-stats:empty,
+.lh-android-keyboard .lh-session-mode-switch,
+.lh-android-keyboard .lh-composer-stats:not(:has(> :not(.lh-session-mode-switch))) {
+	display: none;
+}
+
+.lh-android-compact .lh-session-mode-switch button {
+	min-height: 48px;
+	min-width: 48px;
+}
+
+.lh-android-compact .lh-session-top-bar {
+	gap: 0.5rem;
+}
+
+.lh-android-compact .lh-session-top-bar [data-plugin-chrome-title] {
+	font-size: var(--text-xl);
+}
+
+.lh-android-compact .lh-session-top-bar button[data-plugin-chrome-title] {
+	min-height: 48px;
+}
+
+.lh-android-sheet-controls .lh-android-inline-panel {
+	position: static;
+	width: 100%;
+	transform: none;
+	translate: none;
+}
+
+.lh-android-sheet-controls .lh-android-sheet-label {
+	display: inline;
+}
+
+.lh-android-sheet-controls :is(button:not([role="checkbox"]), input[type="search"], input[aria-label="Search nodes"]) {
+	min-height: 48px;
+}
+
+.lh-android-sheet-controls > :is(.graph-chrome-fade-in, div:has(> [data-testid="import-notes"])) {
+	width: 100%;
+}
+
+.lh-android-sheet-controls :is([data-testid="open-chain-table"], [data-testid="import-notes"], [data-testid="graph-folder-filter"], .lh-graph-display-control > button, [data-testid="plan-chip"]) {
+	width: 100%;
+	justify-content: flex-start;
+	gap: 0.5rem;
+	padding-inline: 0.75rem;
+}
+
+.lh-android-sheet-action {
+	min-height: 48px;
+	padding-inline: 0.75rem;
+	text-align: left;
+	border: 1px solid var(--color-border);
+	border-radius: 0.625rem;
+}
+
+.lh-android-sheet-action:hover {
+	background: var(--color-accent);
 }
 
 /* Teaching prose (the markdown renderer's container gets .lh-prose):

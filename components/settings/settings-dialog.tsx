@@ -33,9 +33,10 @@ import {
 	type ReactNode,
 	type RefObject,
 } from "react";
-import { BotIcon, KeyIcon, KeyboardIcon, PaletteIcon, PlugIcon, PuzzleIcon, SettingsIcon, WaypointsIcon, type LucideIcon } from "lucide-react";
+import { ArrowLeftIcon, BotIcon, ChevronRightIcon, KeyIcon, KeyboardIcon, PaletteIcon, PlugIcon, PuzzleIcon, SettingsIcon, WaypointsIcon, type LucideIcon } from "lucide-react";
 import { HostDialog } from "@/components/host-dialog";
-import { useInteractionLayers, type CloseOutcome } from "@/components/interaction-layers";
+import { useInteractionLayers, type CloseOutcome, type CloseReason } from "@/components/interaction-layers";
+import { useAndroidLayout } from "@/components/android-layout";
 import {
 	CURRENT_SETTINGS_VERSION,
 	type AppearanceSettings,
@@ -113,6 +114,7 @@ export function SettingsDialogProvider({
 	const [show, setShow] = useState(false);
 	const [landOn, setLandOn] = useState<SectionId>("keys");
 	const [landOnRow, setLandOnRow] = useState<string | null>(null);
+	const [landOnIndex, setLandOnIndex] = useState(true);
 	const [navigationRequest, setNavigationRequest] = useState(0);
 	const open = useCallback((section?: string, row?: string) => {
 		// Returning to this singleton is a bounded request, not a forced pop.
@@ -122,6 +124,7 @@ export function SettingsDialogProvider({
 		setNavigationRequest(request => request + 1);
 		setLandOn(section ? section as SectionId : "keys");
 		setLandOnRow(row ?? null);
+		setLandOnIndex(!section && !row);
 		setShow(true);
 	}, [interactions, layerId]);
 	const close = useCallback((): CloseOutcome => { setShow(false); return "closed"; }, []);
@@ -138,7 +141,7 @@ export function SettingsDialogProvider({
 		<ChatGPTUIProvider><NativeSubscriptionUIProvider><WriteOrderContext.Provider value={writeOrder}><DialogContext.Provider value={{ open }}>
 			{children}
 			{show && (
-				<SettingsDialog onClose={close} initialSection={landOn} initialRow={landOnRow} navigationRequest={navigationRequest} layerId={layerId} />
+				<SettingsDialog onClose={close} initialSection={landOn} initialRow={landOnRow} initialIndex={landOnIndex} navigationRequest={navigationRequest} layerId={layerId} />
 			)}
 		</DialogContext.Provider></WriteOrderContext.Provider></NativeSubscriptionUIProvider></ChatGPTUIProvider>
 	);
@@ -152,6 +155,7 @@ function SettingsDialog({
 	onClose,
 	initialSection,
 	initialRow,
+	initialIndex,
 	navigationRequest,
 	layerId,
 }: {
@@ -161,13 +165,14 @@ function SettingsDialog({
 	layerId: string;
 	/** The keys-section row to unfold (see DialogContext above). */
 	initialRow: string | null;
+	initialIndex: boolean;
 }) {
 	// Keep the original visual frame and plain dim backdrop. The shared
 	// untransformed boundary also contains this modal's portaled menus.
 	return <SettingsDialogBody onClose={onClose} initialSection={initialSection}
-		initialRow={initialRow} navigationRequest={navigationRequest}
-		renderFrame={frame => <HostDialog open layerId={layerId} ownerId={null}
-			onClose={onClose} frame={frame} aria-label="Settings"
+		initialRow={initialRow} initialIndex={initialIndex} navigationRequest={navigationRequest}
+		renderFrame={(frame, dismiss) => <HostDialog open layerId={layerId} ownerId={null}
+			onClose={dismiss} frame={frame} aria-label="Settings"
 			backdropProps={{
 				className: "fixed inset-0 z-50 flex items-center justify-center bg-background/80",
 				"data-testid": "settings-backdrop",
@@ -180,19 +185,22 @@ export function SettingsDialogBody({
 	onClose,
 	initialSection = "keys",
 	initialRow = null,
+	initialIndex = true,
 	navigationRequest = 0,
 	renderFrame,
 }: {
 	onClose: () => void;
 	/** The runtime supplies the shared modal shell; standalone SSR retains the frame. */
-	renderFrame?: (frame: ReactElement<{ children: ReactNode }>) => ReactNode;
+	renderFrame?: (frame: ReactElement<{ children: ReactNode }>, dismiss: (reason: CloseReason) => CloseOutcome) => ReactNode;
 	initialSection?: SectionId;
 	/** Repeated opens must retarget even when the requested section is unchanged. */
 	navigationRequest?: number;
 	/** The keys row to unfold on arrival (null = none). While-open
 	 *  retargets follow it exactly like initialSection below. */
 	initialRow?: string | null;
+	initialIndex?: boolean;
 }) {
+	const { compact } = useAndroidLayout();
 	const { onAppearanceChange } = useAppearance();
 	const inheritedWriteOrder = useContext(WriteOrderContext);
 	const standaloneWriteOrder = useRef(newWriteOrder());
@@ -236,6 +244,26 @@ export function SettingsDialogBody({
 		};
 	}, []);
 	const [active, setActive] = useState<SectionId>(initialSection);
+	const [showIndex, setShowIndex] = useState(initialIndex);
+	const headingRef = useRef<HTMLHeadingElement>(null);
+	const navigate = (section: SectionId) => {
+		setActive(section);
+		setShowIndex(false);
+		if (compact) requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
+	};
+	const indexVisible = compact && showIndex;
+	const backToIndex = () => {
+		setShowIndex(true);
+		requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
+	};
+	const dismiss = (reason: CloseReason): CloseOutcome => {
+		if (reason === "escape" && compact && !showIndex) {
+			backToIndex();
+			return "handled-without-close";
+		}
+		onClose();
+		return "closed";
+	};
 	// A deep-link fired while the dialog is ALREADY open (first exercised by
 	// the wave-6 embedding picker's "Add a provider key first…" link — the
 	// picker itself died with wave 7, the mechanism is general) changes
@@ -243,7 +271,8 @@ export function SettingsDialogBody({
 	// nothing.
 	useEffect(() => {
 		setActive(initialSection);
-	}, [initialSection, navigationRequest]);
+		setShowIndex(initialIndex);
+	}, [initialSection, initialIndex, navigationRequest]);
 
 	const enabledPlugins = snapshot.plugins.filter(plugin => plugin.info.enabled);
 	const activePluginId = active.startsWith("plugin:") ? active.slice("plugin:".length) : null;
@@ -394,7 +423,13 @@ export function SettingsDialogBody({
 		>
 			{/* Header — the app's quiet CMU title language. */}
 			<header className="flex h-15 shrink-0 items-center gap-3 border-b border-border px-5">
-				<h2 className="font-title text-2xl tracking-tight">Settings</h2>
+				{compact && !indexVisible && <button type="button" aria-label="Back to settings sections"
+					className="flex size-12 shrink-0 items-center justify-center rounded-lg hover:bg-accent" onClick={backToIndex}>
+					<ArrowLeftIcon className="size-5" aria-hidden />
+				</button>}
+				<h2 ref={headingRef} tabIndex={-1} className="min-w-0 truncate font-title text-2xl tracking-tight outline-none">
+					{compact && !indexVisible ? navSections.find(section => section.id === selected)?.label ?? "Settings" : "Settings"}
+				</h2>
 				<Hint
 						// Esc closes through the shared interaction owner.
 						label="Close"
@@ -425,6 +460,7 @@ export function SettingsDialogBody({
 				{/* Left nav — mono labels and theme-inherited decorative icons,
 					    active = bg-accent. */}
 				<nav
+					hidden={compact && !indexVisible}
 					aria-label="Settings sections"
 					data-testid="settings-nav"
 					className="flex min-h-0 w-48 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2"
@@ -435,16 +471,17 @@ export function SettingsDialogBody({
 							<button
 								type="button"
 								data-testid={`settings-nav-${s.id}`}
-								aria-current={selected === s.id}
+								aria-current={!indexVisible && selected === s.id}
 								className={`flex w-full items-center gap-2 break-words rounded-sm px-3 py-1.5 text-left font-ui text-sm transition-colors ${
-									selected === s.id
+									!indexVisible && selected === s.id
 										? "bg-accent text-foreground"
 										: "text-muted-foreground hover:bg-accent hover:text-foreground"
 								}`}
-								onClick={() => setActive(s.id)}
+								onClick={() => navigate(s.id)}
 							>
 								{s.icon && <s.icon aria-hidden="true" focusable="false" className="size-3.5 shrink-0" />}
-								<span className="min-w-0">{s.label}</span>
+								<span className="min-w-0">{compact && s.id === "agent" ? "Agent & models" : s.label}</span>
+								{compact && <ChevronRightIcon className="ml-auto size-4 shrink-0" aria-hidden />}
 							</button>
 							{s.id === "plugins" && <hr className="my-2 border-border" />}
 						</div>
@@ -458,6 +495,7 @@ export function SettingsDialogBody({
 				    intercepts wheel/touch instead of hiding the scrollbar —
 				    nothing may shift when the lock engages. */}
 				<div
+					hidden={indexVisible}
 					ref={contentRef}
 					className="min-w-0 flex-1 overflow-y-auto"
 					data-testid="settings-content"
@@ -471,7 +509,7 @@ export function SettingsDialogBody({
 							{error}
 						</p>
 					)}
-					{selected === "plugins" || selected === "core-plugins" ? <PluginsSection origin={selected === "core-plugins" ? "core" : "community"} onOpenSettings={pluginId => setActive(`plugin:${pluginId}`)} />
+					{selected === "plugins" || selected === "core-plugins" ? <PluginsSection origin={selected === "core-plugins" ? "core" : "community"} onOpenSettings={pluginId => navigate(`plugin:${pluginId}`)} />
 						: activePlugin ? <PluginSettingsPage key={`${activePlugin.info.id}/${activePlugin.info.revision}`} plugin={activePlugin} />
 							: activePluginId !== null ? <p role="status" className="px-6 py-5 text-xs text-muted-foreground">Loading plugins…</p>
 								: record === undefined ? (
@@ -499,7 +537,7 @@ export function SettingsDialogBody({
 							)}
 							{active === "keys" && (
 								<SettingsSection title="Providers" testid="section-keys">
-									<KeysSection initialRow={initialRow ?? undefined} />
+									<KeysSection initialRow={initialRow ?? undefined} active={!indexVisible} />
 								</SettingsSection>
 							)}
 							{active === "agent" && (
@@ -567,5 +605,5 @@ export function SettingsDialogBody({
 			</div>
 		</div>
 	);
-	return renderFrame ? renderFrame(frame) : frame;
+	return renderFrame ? renderFrame(frame, dismiss) : frame;
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { SurfaceRegion, usePageSurfaceBoundary, useSurfaceChromeStyle } from "./plugin-surfaces";
-import { CornerDownLeftIcon, DumbbellIcon } from "lucide-react";
+import { CornerDownLeftIcon } from "lucide-react";
 import { GraphView } from "@/components/graph-view";
 import { MinimalHome } from "@/components/minimal-home";
 import { SetupDialog } from "@/components/setup-dialog";
@@ -19,6 +19,8 @@ import { OPENING_PROMPT_FAILURE } from "@/components/opening-prompt";
 import { PathInput } from "@/components/path-input";
 import { AttachFilesButton } from "@/components/attach-files-button";
 import { SessionStarter } from "@/components/start-session";
+import { useAndroidLayout } from "@/components/android-layout";
+import { SessionModeSwitch } from "@/components/session-mode-switch";
 import type { TurnUsage } from "@/src/core";
 
 /**
@@ -38,6 +40,8 @@ export function Home({
 	rendering?: boolean;
 }) {
 	const controller = useOptionalInteractionLayers();
+	const { android, compact } = useAndroidLayout();
+	const [toolsAnchor, setToolsAnchor] = useState<HTMLDivElement | null>(null);
 	const router = useRouter();
 	const pathname = usePathname();
 	const bodyRef = useRef<HTMLDivElement>(null);
@@ -246,7 +250,7 @@ export function Home({
 					{startError && <p role="alert" className="mb-2 text-sm text-destructive">{OPENING_PROMPT_FAILURE}</p>}
 					<form
 						data-attachment-composer=""
-						className="flex items-end gap-1.5 rounded-2xl border bg-card p-1.5 shadow-lg"
+						className="lh-composer-form flex items-end gap-1.5 rounded-2xl border bg-card p-1.5 shadow-lg"
 					onSubmit={(e) => {
 						e.preventDefault();
 						void start();
@@ -278,10 +282,10 @@ export function Home({
 							}
 						}}
 						placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
-						autoFocus
+						autoFocus={!android}
 						className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
 					/>
-					<AttachFilesButton editorRef={topicInputRef} />
+					{compact ? <div ref={setToolsAnchor} className="order-first shrink-0" /> : <AttachFilesButton editorRef={topicInputRef} />}
 					{/* No tooltip on the start square — the ↵ glyph is the
 					    affordance (owner, subtlety round 2026-09-25). */}
 					<button
@@ -299,28 +303,12 @@ export function Home({
 					    pills write /api/settings/models). */}
 					<StatsBar
 						dictationSlot={<DictationBar dictation={dictation} />}
+						dictationActive={dictation.active}
+						dictationError={!!dictation.error}
+						toolsAnchor={toolsAnchor}
+						attachmentEditor={topicInputRef}
 						turns={[] as TurnUsage[]}
-						leadingSlot={
-							<div className="flex items-center gap-0.5 rounded-md border border-border/60 bg-background p-0.5" data-testid="home-mode-switch">
-								{(["teach", "practice"] as const).map((m) => (
-									<button
-										key={m}
-										type="button"
-										data-testid={`home-mode-${m}`}
-										onClick={() => setMode(m)}
-										className={
-											"flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] uppercase tracking-wider transition-colors " +
-											(mode === m
-												? "bg-accent text-foreground"
-												: "text-muted-foreground hover:text-foreground")
-										}
-									>
-										{m === "practice" ? <DumbbellIcon aria-hidden="true" className="size-3" /> : null}
-										{m === "teach" ? "Teach" : "Practice"}
-									</button>
-								))}
-							</div>
-						}
+						leadingSlot={<SessionModeSwitch mode={mode} onChange={setMode} />}
 					/>
 				</div>
 			</div>
@@ -337,6 +325,7 @@ export function Home({
 				<div className="pointer-events-auto contents">
 					<SidebarToggle />
 				</div>
+				{compact && <span className="min-w-0 truncate font-title text-xl">{rendering ? "Knowledge graph" : "Knowledge base"}</span>}
 				{/* The graph's folder filter portals here (view only; graph
 				    rendering on). Empty when GraphView renders no control. */}
 				<div ref={setFolderFilterSlot} data-testid="graph-folder-filter-slot" className="pointer-events-auto empty:hidden" />

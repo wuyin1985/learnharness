@@ -1,5 +1,8 @@
 "use client";
 
+import { AndroidActions } from "@/components/android-actions";
+import { useAndroidLayout } from "@/components/android-layout";
+
 /**
  * THE MINIMAL HOME (owner, 2026-10-06 — the no-graph home, take two):
  * when GRAPH RENDERING is off (graph.rendering in settings), the home's
@@ -42,6 +45,7 @@ export function KnowledgeSummary({
 	practiceSessions: number;
 	importedNotes: number;
 }) {
+	const { compact } = useAndroidLayout();
 	const empty =
 		propositions === 0 && chains === 0 && teachSessions === 0 && practiceSessions === 0 && importedNotes === 0;
 	return (
@@ -74,7 +78,7 @@ export function KnowledgeSummary({
 			{empty && (
 				<div className="pt-2 font-ui text-xs text-muted-foreground/70">
 					<p>Start a session to begin learning.</p>
-					<p className="mt-1">Attach your material with the paperclip or drag and drop.</p>
+					<p className="mt-1">{compact ? "Use + to attach your learning materials." : "Attach your material with the paperclip or drag and drop."}</p>
 				</div>
 			)}
 		</div>
@@ -156,11 +160,13 @@ export function MinimalHome({
 			    entry law). */}
 			<div className="lh-no-drag lh-wco-floating absolute right-2 top-2 z-10 flex max-w-[calc(100%-5.5rem)] flex-col items-end gap-2">
 				<div className="flex min-w-0 items-start gap-2">
+					<AndroidActions label="Graph actions">
+					{sheet => <>
 					<div className="graph-chrome-fade-in shrink-0 rounded-xl border bg-card/85 px-1 py-[3px] shadow-lg backdrop-blur">
 						<Hint label="Every reasoning chain" side="bottom">
 							<button
 								type="button"
-								onClick={() => setChainsOpen(true)}
+								onClick={() => { sheet?.close(); setChainsOpen(true); }}
 								data-testid="open-chain-table"
 								className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent"
 							>
@@ -169,7 +175,9 @@ export function MinimalHome({
 							</button>
 						</Hint>
 					</div>
-					<NotesImportControl importing={importing} onImportFiles={onImportFiles} />
+					<NotesImportControl importing={importing} onImportFiles={onImportFiles} onChoose={sheet?.close} />
+					</>}
+					</AndroidActions>
 				</div>
 				<NotesImportErrors errors={notesImport.errors} />
 				<NotesImportNotices notices={notesImport.notices} />

@@ -81,7 +81,10 @@ function AttachmentPopup({ anchorRef, rootRef, open, close, children }: {
  * folder choice returns the directory itself, including an empty directory.
  * aria-disabled, not disabled, so the tooltip still shows.
  */
-export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HTMLDivElement | null> }) {
+export function AttachFilesButton({ editorRef, androidSheet }: {
+	editorRef: React.RefObject<HTMLDivElement | null>;
+	androidSheet?: { onPick: () => void; onStatus: (status: { uploading: boolean; error?: string }) => void };
+}) {
 	const controller = useOptionalInteractionLayers();
 	const pickerRef = useRef<HTMLInputElement>(null);
 	const desktop = useDesktopPaths();
@@ -148,6 +151,8 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 		for (const file of files) form.append("files", file);
 		setNotice("");
 		setUploading(true);
+		androidSheet?.onStatus({ uploading: true });
+		let errorMessage: string | undefined;
 		try {
 			const response = await fetch("/api/android/attachments", { method: "POST", body: form });
 			const result: { paths?: string[]; error?: string } = await response.json();
@@ -156,9 +161,11 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 				editor.dispatchEvent(new CustomEvent(INSERT_FILE_PATHS_EVENT, { detail: result.paths }));
 			}
 		} catch (error) {
-			setNotice(error instanceof Error ? error.message : "Could not attach the selected files.");
+			errorMessage = error instanceof Error ? error.message : "Could not attach the selected files.";
+			if (!androidSheet) setNotice(errorMessage);
 		} finally {
 			setUploading(false);
+			androidSheet?.onStatus({ uploading: false, error: errorMessage });
 		}
 	};
 	return (
@@ -193,12 +200,16 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 					aria-expanded={desktop ? open : undefined}
 					data-testid="attach-files"
 					onClick={() => {
-						if (android && !uploading) pickerRef.current?.click();
+						if (android && !uploading) {
+							pickerRef.current?.click();
+							androidSheet?.onPick();
+						}
 						else if (desktop) { setNotice(""); setOpen(!open); }
 					}}
-					className="flex size-10 shrink-0 items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground"
+					className={`flex shrink-0 items-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground ${androidSheet ? "min-h-12 w-full gap-2 border px-3 text-sm" : "size-10 justify-center"}`}
 				>
 					<PaperclipIcon className="size-4" />
+					{androidSheet && <span>Attach files</span>}
 				</button>
 			</Hint>
 			{(open || notice) && <AttachmentPopup anchorRef={buttonRef} rootRef={popupRef} open={open} close={() => setOpen(false)}><div ref={popupRef} role={open ? "menu" : "status"}

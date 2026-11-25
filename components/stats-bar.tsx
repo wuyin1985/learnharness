@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { CLAUDE_CODE_PROVIDER, sessionCacheHitRate, subscriptionLabels, subscriptionLabel, type cliContextWindowOf, type SessionPricing, type TurnUsage } from "@/src/core";
 import { formatTokens, formatUsd, planCostLabel, prettyModel } from "@/components/usage-format";
 import { ModelControl, catalogLimits, useModelCatalog } from "@/components/model-picker";
 import { usePopoverDismiss } from "@/components/popover-dismiss";
 import { INTERACTION_LAYER_Z_BASE } from "@/components/host-dialog";
+import { AndroidActions } from "@/components/android-actions";
+import { useAndroidLayout } from "@/components/android-layout";
+import { AttachFilesButton } from "@/components/attach-files-button";
 
 export function formatContextMeasurement(tokens: number | null, limit: number | null): string {
 	const numerator = tokens === null ? "?" : formatTokens(tokens);
@@ -48,6 +51,10 @@ export function StatsBar({
 	chatId,
 	leadingSlot,
 	onModelChange,
+	toolsAnchor,
+	attachmentEditor,
+	dictationActive = false,
+	dictationError = false,
 }: {
 	turns: TurnUsage[];
 	contextTokens?: number | null;
@@ -69,7 +76,13 @@ export function StatsBar({
 	 *  composer's teach | practice switch rides here — before the session
 	 *  data (which renders nothing pre-chat on that surface). */
 	leadingSlot?: ReactNode;
+	toolsAnchor?: HTMLElement | null;
+	attachmentEditor?: RefObject<HTMLDivElement | null>;
+	dictationActive?: boolean;
+	dictationError?: boolean;
 }) {
+	const { compact } = useAndroidLayout();
+	const [attachmentStatus, setAttachmentStatus] = useState<{ uploading: boolean; error?: string }>();
 	const [open, setOpen] = useState(false);
 	const [selectedModel, setSelectedModel] = useState<string | undefined>();
 	const modelChanged = useCallback((model: string | undefined) => {
@@ -96,27 +109,7 @@ export function StatsBar({
 	const cliBilled = turns.some((turn) => turn.model.startsWith(`${CLAUDE_CODE_PROVIDER}:`));
 	const costLabel = planCostLabel(pricedCount > 0 ? cost : null, cliBilled ? [...providers, "CLI"] : providers);
 
-	return (
-		<div
-			data-testid="stats-bar"
-			// pointer-events-auto: the sticky composer wrapper is pointer-events-none
-			// (so its transparent gradient area never blocks scrolling) — this row
-			// must re-enable events or every control on it is dead (the model-
-			// control wave caught this live: buttons rendered, clicks never landed).
-			className="pointer-events-auto relative flex items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground"
-		>
-			{/* The summary button + its popover: the popover anchors to this
-			    wrapper, CENTERED over the button itself (owner, stats round 2)
-			    — not over the whole bar row, which made it line up oddly. The
-			    outside-close ref anchors HERE too (owner, round 3): on the whole
-			    bar it wrapped the model control, so clicking model/thinking never
-			    counted as outside — the asymmetry the owner observed. */}
-			{/* The leading slot (2026-10-04): the leftmost control surface —
-			    the home composer's mode switch. */}
-			{leadingSlot}
-			{/* The left side: the session-data summary — only once a session
-			    exists (turns). Pre-chat renders nothing (see the header). */}
-			{(chatId || turns.length > 0) && (
+	const summary = (chatId || turns.length > 0) && (
 			<div ref={barRef} className="relative">
 				{/* No tooltip — the numbers describe themselves and the popover
 			    speaks on click (owner, subtlety round 2026-09-25). */}
@@ -138,7 +131,7 @@ export function StatsBar({
 						ref={panelRef}
 						data-testid="stats-detail"
 						style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }}
-						className="absolute bottom-full left-1/2 mb-1.5 w-72 -translate-x-1/2 rounded-xl border bg-card p-3 text-xs shadow-xl"
+						className="lh-android-inline-panel absolute bottom-full left-1/2 mb-1.5 w-72 -translate-x-1/2 rounded-xl border bg-card p-3 text-xs shadow-xl"
 					>
 						<div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							Session stats
@@ -197,17 +190,26 @@ export function StatsBar({
 					</div>
 				)}
 			</div>
-			)}
-			{/* The middle slot: dictation (owner, 2026-09-17). flex-1 lets the
-			    meter expand into the row's free width; justify-center keeps the
-			    lone idle mic button visually centered. */}
-			{dictationSlot && (
-				<div className="flex min-w-0 flex-1 items-center justify-center">{dictationSlot}</div>
-			)}
-			{/* The model + thinking control — one controller for the conversation
-			    agents (prober/teacher); the record's `turns` above still folds
-			    the ACTUAL models billed, regardless of what the picker says. */}
-			<ModelControl chatId={chatId} onModelChange={modelChanged} />
+	);
+	const visibleDictation = compact && (dictationActive || dictationError);
+	const dictation = dictationSlot && <div className="flex min-w-0 flex-1 items-center justify-center">{dictationSlot}</div>;
+
+	return (
+		<div data-testid="stats-bar" className="lh-composer-stats pointer-events-auto relative flex items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground">
+			{leadingSlot}
+			{compact && attachmentStatus?.uploading && <p role="status">Attaching files…</p>}
+			{compact && attachmentStatus?.error && <p role="alert" className="break-words text-error">{attachmentStatus.error}</p>}
+			{visibleDictation && dictation}
+			<AndroidActions label="Composer tools" anchor={toolsAnchor} composer closeWhile={dictationActive}>
+				{sheet => <>
+					{sheet && toolsAnchor && attachmentEditor && <AttachFilesButton editorRef={attachmentEditor}
+						androidSheet={{ onPick: sheet.close, onStatus: setAttachmentStatus }} />}
+					{!sheet && summary}
+					{!visibleDictation && dictation}
+					<ModelControl chatId={chatId} onModelChange={modelChanged} shortcut={sheet} />
+					{sheet && summary}
+				</>}
+			</AndroidActions>
 		</div>
 	);
 }

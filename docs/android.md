@@ -4,11 +4,11 @@ The Android app bundles the LearnHarness web UI, its Node.js learning engine, an
 
 ## Run on a phone or tablet
 
-Use Android 9 or newer with Android System WebView 111 or newer. The APK supports arm64, 32-bit ARM, and x86-64. On a phone, use the menu button to open sessions over the current page. Wider windows show sessions and learning content side by side. The settings sections scroll horizontally on narrow screens.
+Use Android 9 or newer with Android System WebView 111 or newer. The APK supports arm64, 32-bit ARM, and x86-64. On a phone, use the sidebar button to open sessions over the current page. Use **+** for composer tools and **⋯** for graph or session actions. Settings opens a vertical list of sections. Android Back closes the current menu or returns from a settings section to the list. Windows with sufficient width and height can show sessions and learning content side by side.
 
 Open **Set up models**, add a provider key or an OpenAI-compatible endpoint, and choose the Strong, Cheap, and Vision models. Model requests need network access when the selected provider is remote. Dictation and web research also use their respective services when configured.
 
-Use the paperclip to copy selected files into LearnHarness and insert their references in the session. A selection can contain up to 32 files and 25 MB in total. The original files remain in their provider. Android's clear-storage and uninstall commands remove the learning profile and those copies.
+Use **Attach files** in the composer tools, or the paperclip in a wider window, to copy selected files into LearnHarness and insert their references in the session. A selection can contain up to 32 files and 25 MB in total. The original files remain in their provider. Android's clear-storage and uninstall commands remove the learning profile and those copies.
 
 Use **Connect** next to ChatGPT in **Settings → Providers** to open sign-in in the system browser. Return to LearnHarness after the browser confirms sign-in.
 

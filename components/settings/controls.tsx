@@ -11,6 +11,7 @@
 
 import { useLayoutEffect, useRef, useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { ChevronDownIcon } from "lucide-react";
 
 /** A section block: pronounced mono heading + content. */
 export function SettingsSection({
@@ -40,11 +41,22 @@ export function SettingsGroup({
 	label,
 	children,
 	testid,
+	collapsed,
 }: {
 	label: string;
 	children: React.ReactNode;
 	testid?: string;
+	collapsed?: boolean;
 }) {
+	if (collapsed !== undefined) return (
+		<details data-testid={testid} open={!collapsed} className="lh-provider-group rounded-lg border">
+			<summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm text-muted-foreground">
+				{label}
+				<ChevronDownIcon className="size-4" aria-hidden />
+			</summary>
+			<div className="flex min-w-0 flex-col gap-2 border-t p-3">{children}</div>
+		</details>
+	);
 	return (
 		<div data-testid={testid} className="mt-5 border-t border-border/60 pt-4 first:mt-0 first:border-t-0 first:pt-0">
 			<p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">{label}</p>

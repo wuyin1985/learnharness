@@ -32,6 +32,7 @@ import { PluginSidebarActions } from "@/components/plugin-chrome";
 import { HostContentRootContext, HostRouteLifetimeProvider } from "@/components/host-content-root";
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { InteractionLayersProvider, useInteractionLayer, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
+import { useAndroidLayout } from "@/components/android-layout";
 import { INTERACTION_LAYER_Z_BASE } from "@/components/host-dialog";
 import { StartupMessage, type StartupMessageOffer } from "@/components/startup-message";
 
@@ -116,7 +117,7 @@ export function useSidebar() {
 	return useContext(SidebarContext);
 }
 
-export function SidebarProvider({ children, android = false }: { children: React.ReactNode; android?: boolean }) {
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		const bridge = window.lh?.chatgpt;
 		if (!bridge) return;
@@ -129,21 +130,11 @@ export function SidebarProvider({ children, android = false }: { children: React
 	const [open, setOpen] = useState(false);
 	const [narrow, setNarrow] = useState(false);
 	const [mounted, setMounted] = useState(false);
-	const [compact, setCompact] = useState(false);
+	const { drawer: compact } = useAndroidLayout();
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-	useEffect(() => {
-		if (!android) return;
-		const query = window.matchMedia("(max-width: 839px)");
-		const update = () => {
-			setCompact(query.matches);
-			closeDrawer();
-		};
-		update();
-		query.addEventListener("change", update);
-		return () => query.removeEventListener("change", update);
-	}, [android, closeDrawer]);
+	useEffect(() => { if (!compact) closeDrawer(); }, [compact, closeDrawer]);
 
 	useEffect(() => {
 		// Electron shell detection (merged chrome, 2026-09-17): keys the
@@ -1245,7 +1236,7 @@ function AndroidBackHandler() {
 	useEffect(() => {
 		const handle = (event: Event) => {
 			const top = layers.getTopLayer();
-			if (!top || top.kind === "view") return;
+			if (!top?.onClose) return;
 			event.preventDefault();
 			layers.requestClose(top.id, "escape");
 		};

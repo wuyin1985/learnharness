@@ -90,7 +90,7 @@ export function useNotesImport(callbacks: { onStart?: () => void; onFinish?: () 
 
 /** PR198's shared Files / Folder native picker. Unlike the donor, it remains
  * available while work is running; later selections join the SAME queue. */
-export function NotesImportControl({ importing, onImportFiles }: { importing: boolean; onImportFiles: (files: FileList | null) => void }) {
+export function NotesImportControl({ importing, onImportFiles, onChoose }: { importing: boolean; onImportFiles: (files: FileList | null) => void; onChoose?: () => void }) {
 	const filesRef = useRef<HTMLInputElement>(null);
 	const folderRef = useRef<HTMLInputElement>(null);
 	const [open, setOpen] = useState(false);
@@ -117,10 +117,10 @@ export function NotesImportControl({ importing, onImportFiles }: { importing: bo
 				</button>
 			</Hint>
 			{open && (
-				<div ref={panelRef} role="menu" aria-label="Extract files into the graph" aria-describedby={hintId} style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }} className="absolute right-0 top-full mt-1 w-52 rounded-lg border bg-card p-1 shadow-lg">
+				<div ref={panelRef} role="menu" aria-label="Extract files into the graph" aria-describedby={hintId} style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }} className="lh-android-inline-panel absolute right-0 top-full mt-1 w-52 rounded-lg border bg-card p-1 shadow-lg">
 					<div role="none"><p id={hintId} className="px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">For lessons, attach material to a session instead.</p></div>
 					{choices.map(([label, input]) => <button key={label} type="button" role="menuitem" className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-accent"
-						onClick={() => { setOpen(false); input.current?.click(); }}>{label}</button>)}
+						onClick={() => { setOpen(false); input.current?.click(); onChoose?.(); }}>{label}</button>)}
 				</div>
 			)}
 		</div>

@@ -48,12 +48,14 @@ export function TopBar({
 	onMouseDown,
 	children,
 	sidebarToggle = true,
+	className = "",
 }: {
 	drag?: boolean;
 	onMouseDown?: React.MouseEventHandler<HTMLElement>;
 	children?: ReactNode;
 	/** Host picker chrome: native clearance without changing sidebar state. */
 	sidebarToggle?: boolean;
+	className?: string;
 }) {
 	const header = useRef<HTMLElement>(null);
 	useLayoutEffect(() => {
@@ -82,7 +84,7 @@ export function TopBar({
 		<header
 			ref={header}
 			onMouseDown={onMouseDown}
-			className={`${drag ? "lh-drag " : ""}${sidebarToggle ? "" : "lh-native-window-clearance "}lh-wco-gutter flex h-15 select-none items-center gap-3 border-b border-border px-3`}
+			className={`${drag ? "lh-drag " : ""}${sidebarToggle ? "" : "lh-native-window-clearance "}lh-wco-gutter flex h-15 select-none items-center gap-3 border-b border-border px-3 ${className}`}
 		>
 			{sidebarToggle && <SidebarToggle />}
 			{children}

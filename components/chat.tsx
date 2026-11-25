@@ -12,6 +12,9 @@ import { findSurfaceBoundary } from "./plugin-surface-targets";
 import { scheduleOpeningSubmission } from "./plugin-submission-opening";
 import { activeProblemOccurrenceOf, buildAnswer, toClientQuestion, type PluginSubmission, type PluginSubmissionTarget, type QuestionData } from "@/src/core";
 import { validatePluginBuiltinSubmissionAnswer } from "@/src/core";
+import { kbdEventForAction } from "@/src/core";
+import { AndroidActions } from "@/components/android-actions";
+import { useAndroidLayout } from "@/components/android-layout";
 import { visibleQueuedSteers } from "@/components/session-core";
 import { SetupDialog } from "@/components/setup-dialog";
 import { Hint } from "@/components/ui/hint";
@@ -970,6 +973,8 @@ export function Chat({
 	 * is null, and the thinking field is left alone by design. */
 	const dictationWasActiveRef = useRef(false);
 	const composerInputRef = useRef<HTMLDivElement>(null);
+	const { compact: compactAndroid } = useAndroidLayout();
+	const [toolsAnchor, setToolsAnchor] = useState<HTMLDivElement | null>(null);
 
 	// CITE (2026-10-31): selected tutor text → a citation chip in the
 	// composer, then its comment popover. The transcript's scroll element
@@ -1645,6 +1650,7 @@ export function Chat({
 				    LH wordmark band, so the header's border-b continues that
 				    band's bottom edge as one line across the app (owner, round 6). */}
 				<TopBar
+					className="lh-session-top-bar"
 					// While renaming the bar is NOT a drag surface: app-region:drag
 					// would eat the mousedown, so click-to-escape (below) could
 					// never fire. Rename mode is interactive mode (owner ask) —
@@ -1715,12 +1721,25 @@ export function Chat({
 					{/* The plan chip (owner, plan-placement round): session-level
 					    structure beside the phase chip — access to the full-DAG popup
 					    at every width; the marginalia is the wide-screen glance view. */}
+					<AndroidActions label="Session actions">
+					{sheet => <>
+					{sheet && <>
+						<button type="button" className="lh-android-sheet-action" onClick={() => {
+							sheet.close();
+							requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(kbdEventForAction("find"))));
+						}}>Find in session</button>
+						<button type="button" className="lh-android-sheet-action" onClick={() => {
+							sheet.close();
+							requestAnimationFrame(openModelPicker);
+						}}>Session model</button>
+					</>}
 					{planTree && (
 						<Hint label="Open the full plan" side="bottom">
 <button
 							type="button"
 							data-testid="plan-chip"
 							onClick={(e) => {
+								sheet?.close();
 								blurAfterPointerClick(e);
 								setPlanOpen(true);
 							}}
@@ -1755,6 +1774,8 @@ export function Chat({
 						<PhaseChip phase={phases.at(-1) ?? "probe"} />
 					)}
 					<PluginSessionTopBarActions readContext={actionContext} captureContext={captureActionContext} refreshRef={refreshPluginActions} />
+					</>}
+					</AndroidActions>
 				</TopBar>
 
 				<SessionFind scopeRef={sessionFindScopeRef} scrollContextRef={scrollContextRef} />
@@ -2099,6 +2120,10 @@ export function Chat({
 					pricing={pricing}
 					onReserve={setDockReserve}
 					dictationSlot={<DictationBar dictation={dictation} disabled={pluginOwnsDock && !pluginMicAvailable} />}
+					dictationActive={dictation.active}
+					dictationError={!!dictation.error}
+					toolsAnchor={toolsAnchor}
+					attachmentEditor={composerInputRef}
 					dictationCancel={dictation.cancel}
 					queuedSteers={visibleQueuedSteers(steerQueue, nativeMessages)}
 					setupCta={
@@ -2131,6 +2156,7 @@ export function Chat({
 							revision={composerDraftRevision}
 							onChange={recordComposerText}
 							inputRef={composerInputRef}
+							onToolsAnchor={compactAndroid ? setToolsAnchor : undefined}
 							onSend={onSend}
 							onStop={abortInFlightTurn}
 							sendAllowed={sendAllowed}
@@ -2418,6 +2444,10 @@ export function DockOverlay({
 	plan,
 	onOpenPlan,
 	dictationSlot,
+	dictationActive,
+	dictationError,
+	toolsAnchor,
+	attachmentEditor,
 	dictationCancel,
 	setupCta,
 	queuedSteers,
@@ -2487,6 +2517,10 @@ export function DockOverlay({
 	/** The dictation strip (STT wave): rendered in the stats bar's middle
 	 *  slot — the mic button + live meter (components/dictation.tsx). */
 	dictationSlot?: React.ReactNode;
+	dictationActive?: boolean;
+	dictationError?: boolean;
+	toolsAnchor?: HTMLElement | null;
+	attachmentEditor?: React.RefObject<HTMLDivElement | null>;
 	/** Esc in a pending question's field stops dictation (the strip is the
 	 *  stats bar's; the stop belongs to the page-owned hook, threaded down). */
 	dictationCancel?: () => void;
@@ -3017,6 +3051,10 @@ export function DockOverlay({
 						cliContextWindow={cliContextWindow}
 						pricing={pricing}
 						dictationSlot={dictationSlot}
+						dictationActive={dictationActive}
+						dictationError={dictationError}
+						toolsAnchor={toolsAnchor}
+						attachmentEditor={attachmentEditor}
 						chatId={chatId}
 						onModelChange={onModelChange}
 					/>

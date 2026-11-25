@@ -68,6 +68,8 @@ import { createPortal } from "react-dom";
 import { GraphFolderFilterControl, useGraphFolderSelection } from "@/components/graph-folder-filter";
 import { useSourceDirectory } from "@/components/source-directory";
 import { NotesImportControl, NotesImportErrors, NotesImportNotices, useNotesImport } from "@/components/notes-import.tsx";
+import { AndroidActions } from "@/components/android-actions";
+import { useAndroidLayout } from "@/components/android-layout";
 import { PluginGraphActions } from "@/components/plugin-chrome";
 import { SettingsSlider as SettingSlider } from "@/components/settings/controls";
 import Link from "next/link";
@@ -447,7 +449,7 @@ function GraphSettingsControl({
 	const regionTuning = settings.regions;
 	const physicsTuning = settings.physics;
 	return (
-		<div ref={rootRef} className="relative">
+		<div ref={rootRef} className="lh-graph-display-control relative">
 			<Hint
 				// User language (tooltip wave) — "rendering" is internal.
 				label="Graph display settings"
@@ -462,6 +464,7 @@ function GraphSettingsControl({
 				}`}
 			>
 				<SettingsIcon className="size-4" />
+					<span className="lh-android-sheet-label hidden">Graph display</span>
 			</button>
 			</Hint>
 			{open && (
@@ -476,7 +479,7 @@ function GraphSettingsControl({
 				// (pr-2.5) -> scrollbar -> 10px (p-2.5) -> panel edge. The
 				// scrollbar itself does NOT move: it stays pinned at the same
 				// distance from the panel's right border.
-				<div ref={panelRef} style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }} className="absolute right-0 top-full mt-2 flex max-h-[60vh] w-72 flex-col rounded-xl border bg-card/85 p-2.5 shadow-lg backdrop-blur">
+				<div ref={panelRef} style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }} className="lh-android-inline-panel absolute right-0 top-full mt-2 flex max-h-[60vh] w-72 flex-col rounded-xl border bg-card/85 p-2.5 shadow-lg backdrop-blur">
 					<div className="flex flex-col gap-2 overflow-y-auto pr-2.5">
 							{/* Size/zoom/region sliders: LADDER-mapped 0-100, step 10 (11
 							    stops, every DEFAULT dead-center at 50, every value a nice
@@ -830,6 +833,7 @@ export function GraphChromeRow({
 	importing,
 	searchInputRef,
 	onImportFiles,
+	onImportChoose,
 	settings,
 	changeSettings,
 	onOpenChains,
@@ -843,6 +847,7 @@ export function GraphChromeRow({
 	importing: boolean;
 	searchInputRef: React.RefObject<HTMLInputElement | null>;
 	onImportFiles: (files: FileList | null) => void;
+	onImportChoose?: () => void;
 	settings: GraphRenderSettings;
 	changeSettings: (update: (cur: RenderSettings) => RenderSettings) => void;
 	/** Opens the chain table overlay (the chains-overlay plan,
@@ -894,7 +899,7 @@ export function GraphChromeRow({
 				</div>
 			{/* Import notes — its own container (36px, header band); ALWAYS
 			    rendered (the empty-graph ruling above — the entry point). */}
-			<NotesImportControl importing={importing} onImportFiles={onImportFiles} />
+			<NotesImportControl importing={importing} onImportFiles={onImportFiles} onChoose={onImportChoose} />
 			{!isEmpty && (
 				// Rendering settings — own component; the gear toggles it. The
 				// gear sits at the far right (owner, round 3) so its panel drops
@@ -997,6 +1002,7 @@ export function GraphView({
 
 	// Search panel state: the query text + the settings section toggle.
 	const [query, setQuery] = useState("");
+	const { compact } = useAndroidLayout();
 	// Surface-scoped Find: the chains overlay owns it while open.
 	const searchInputRef = useRef<HTMLInputElement>(null);
 	// Render settings: SERVER-persisted (data/render-settings.json via
@@ -1512,10 +1518,10 @@ export function GraphView({
 				<div className="flex h-full w-full items-center justify-center px-4">
 					<div className="flex flex-col items-center gap-3 text-center text-muted-foreground">
 						<WaypointsIcon className="size-10 opacity-40" strokeWidth={1.25} />
-						<div className="text-lg font-medium text-foreground">Knowledge graph</div>
+						{!compact && <div className="text-lg font-medium text-foreground">Knowledge graph</div>}
 						<div className="max-w-sm text-sm">
 							<p>Start a session to begin learning.</p>
-							<p className="mt-1 text-xs">Attach your material with the paperclip or drag and drop.</p>
+							<p className="mt-1 text-xs">{compact ? "Use + to attach your learning materials." : "Attach your material with the paperclip or drag and drop."}</p>
 						</div>
 					</div>
 				</div>
@@ -1619,11 +1625,15 @@ export function GraphView({
 				{/* The actions row (empty-graph chrome wave, owner 2026-09-25):
 				    Import Notes always — the empty graph's entry point; search +
 				    settings only when nodes exist, fading in on their mount. */}
-				{folderFilterSlot && !isEmpty && organization && createPortal(
+				{!compact && folderFilterSlot && !isEmpty && organization && createPortal(
 					<GraphFolderFilterControl organization={organization} listed={listedFolders}
 						selected={folderSelection} onChange={setFolderSelection} />,
 					folderFilterSlot,
 				)}
+				<AndroidActions label="Graph actions">
+				{sheet => <>
+				{sheet && !isEmpty && organization && <GraphFolderFilterControl organization={organization} listed={listedFolders}
+					selected={folderSelection} onChange={setFolderSelection} />}
 				<GraphChromeRow
 					isEmpty={isEmpty}
 					query={query}
@@ -1632,10 +1642,13 @@ export function GraphView({
 					importing={importing}
 					searchInputRef={searchInputRef}
 					onImportFiles={onImportFiles}
+					onImportChoose={sheet?.close}
 					settings={settings}
 					changeSettings={changeSettings}
-					onOpenChains={() => setChainsOpen(true)}
+					onOpenChains={() => { sheet?.close(); setChainsOpen(true); }}
 				/>
+				</>}
+				</AndroidActions>
 			</div>
 
 			<NotesImportErrors errors={notesImport.errors} />
