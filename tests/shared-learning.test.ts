@@ -46,7 +46,7 @@ test("shared learning config defaults to disabled and requires TLS for a non-loo
 	} finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("the shared gateway pairs once, streams the local engine, and preserves authorized sessions over restart", async () => {
+test("the shared gateway pairs once, expires unused authorization, and preserves sessions over restart", async (t) => {
 	const secret = randomBytes(32).toString("hex");
 	const signingKey = randomBytes(32);
 	const calls: { path?: string; headers: IncomingHttpHeaders }[] = [];
@@ -71,8 +71,16 @@ test("the shared gateway pairs once, streams the local engine, and preserves aut
 		assert.equal((await send(port, "/_lh-share/login")).headers["referrer-policy"], "same-origin");
 		assert.equal((await send(port, "/api/chats", "GET", { "x-learnharness-desktop": secret })).status, 401);
 		assert.equal(calls.length, 0);
-		const code = gateway.makeCode();
 		const headers = { origin: origin.origin, "content-type": "application/x-www-form-urlencoded" };
+		const expired = gateway.makeCode();
+		const now = Date.now();
+		const time = t.mock.method(Date, "now", () => now + 5 * 60_000 + 1);
+		try {
+			const refused = await send(port, "/_lh-share/login", "POST", headers, `code=${expired}`);
+			assert.equal(refused.headers["set-cookie"], undefined);
+			assert.equal(refused.headers.location, "/_lh-share/login?retry=1");
+		} finally { time.mock.restore(); }
+		const code = gateway.makeCode();
 		assert.equal((await send(port, "/_lh-share/login", "POST", { ...headers, origin: "https://other.example" }, `code=${code}`)).status, 403);
 		const signIn = await send(port, "/_lh-share/login", "POST", headers, `code=${code}`);
 		assert.equal(signIn.status, 303);

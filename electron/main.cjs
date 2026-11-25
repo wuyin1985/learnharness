@@ -546,6 +546,10 @@ function setupAutoUpdater() {
 		reportUpdateStatus("disabled");
 		return;
 	}
+	if (require("../package.json").learnHarnessManualUpdates) {
+		reportUpdateStatus("disabled");
+		return;
+	}
 	try {
 		autoUpdater = require("electron-updater").autoUpdater;
 	} catch (err) {
@@ -642,17 +646,17 @@ function installMenu() {
 						});
 						if (response === 0) clipboard.writeText(code);
 					},
-				}, ...(sharedLearning.pairing ? [{
+				}, ...(sharedLearning.canExportConnection ? [{
 					label: "Save Phone Connection File…",
 					click: async () => {
-						const pairing = sharedLearning?.pairing;
-						if (!pairing) return;
 						const { canceled, filePath } = await dialog.showSaveDialog({
 							title: "Save Phone Connection File", defaultPath: "learnharness-pc.lhconnect",
 							filters: [{ name: "LearnHarness connection", extensions: ["lhconnect"] }],
 						});
 						if (canceled || !filePath) return;
-						try { await fs.promises.writeFile(filePath, JSON.stringify(pairing, null, 2), "utf8"); }
+						const pairing = sharedLearning?.makePairing();
+						if (!pairing) return;
+						try { await fs.promises.writeFile(filePath, JSON.stringify(pairing, null, 2), { encoding: "utf8", mode: 0o600 }); }
 						catch (error) { dialog.showErrorBox("LearnHarness", `Could not save the phone connection file. ${error.message}`); }
 					},
 				}] : [])] : []),

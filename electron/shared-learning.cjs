@@ -218,15 +218,22 @@ async function startSharedLearning(config, { upstream, desktopSecret, signingKey
 			resolve();
 		});
 	});
+	const pairingTarget = config.tls ? { origin: config.origin.origin, certificate: config.tls.cert.toString("utf8") } : null;
+	const makeCode = () => {
+		const code = randomBytes(18).toString("base64url");
+		codeDigest = digest(code);
+		codeExpires = Date.now() + CODE_TTL;
+		attempts = 0;
+		return code;
+	};
 	return {
 		url: config.origin.origin,
-		pairing: config.tls ? { version: 1, origin: config.origin.origin, certificate: config.tls.cert.toString("utf8") } : null,
-		makeCode() {
-			const code = randomBytes(18).toString("base64url");
-			codeDigest = digest(code);
-			codeExpires = Date.now() + CODE_TTL;
-			attempts = 0;
-			return code;
+		canExportConnection: !!pairingTarget,
+		makeCode,
+		makePairing() {
+			if (!pairingTarget) return null;
+			const pairingCode = makeCode();
+			return { version: 2, ...pairingTarget, pairingCode, expiresAt: codeExpires };
 		},
 		close() { server.close(); server.closeAllConnections(); },
 	};
