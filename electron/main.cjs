@@ -24,13 +24,14 @@
  *     would shadow every settings-page key change until restart.
  */
 
-const { app, BrowserWindow, Menu, ipcMain, nativeTheme, session, shell, dialog } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, nativeTheme, session, shell, dialog, clipboard, safeStorage } = require("electron");
 const { pickAttachmentPath } = require("./attachment-picker.cjs");
 const { createChatGPT, fileStore } = require("./chatgpt.cjs");
 const { attachChatGPTChild, trustedSender, chatGPTControl } = require("./chatgpt-ipc.cjs");
 const { createSubscriptions, loadSubscriptionSDK } = require("./subscriptions.cjs");
 const { attachSubscriptionChild, subscriptionControl } = require("./subscription-ipc.cjs");
 const { desktopAPIHeaders } = require("./desktop-api.cjs");
+const { loadSigningKey, readSharedConfig, startSharedLearning } = require("./shared-learning.cjs");
 const { openWebSubscriptionBrowser } = require("./web-subscription-browser.cjs");
 const { randomBytes } = require("node:crypto");
 const { spawn } = require("node:child_process");
@@ -154,6 +155,7 @@ let subscriptions = null;
 let subscriptionChild = null;
 // Per-launch request capability, never OAuth tokens and never renderer state.
 let desktopAPISecret = null;
+let sharedLearning = null;
 let reopenWindow = null;
 const trustedAppWindows = new Set();
 
@@ -277,6 +279,8 @@ function waitUntilUp(url, tries = 150) {
 }
 
 function killServer() {
+	sharedLearning?.close();
+	sharedLearning = null;
 	chatgpt?.close();
 	subscriptions?.close();
 	if (!serverProcess) return;
@@ -622,6 +626,36 @@ function installMenu() {
 				{ role: "about" },
 				// Manual checks report their result in Settings → General.
 				{ label: "Check for Updates…", click: () => checkForUpdatesFromMenu() },
+				...(sharedLearning ? [{
+					label: "Connect a Phone…",
+					accelerator: "CommandOrControl+Shift+Y",
+					click: async () => {
+						const host = sharedLearning;
+						if (!host) return;
+						const code = host.makeCode();
+						const { response } = await dialog.showMessageBox({
+							type: "info",
+							title: "LearnHarness",
+							message: "Connect a phone",
+							detail: `Open ${host.url} using your approved network.\n\nSign-in code: ${code}\n\nThe code can be used once and expires in five minutes.`,
+							buttons: ["Copy sign-in code", "Close"], cancelId: 1,
+						});
+						if (response === 0) clipboard.writeText(code);
+					},
+				}, ...(sharedLearning.pairing ? [{
+					label: "Save Phone Connection File…",
+					click: async () => {
+						const pairing = sharedLearning?.pairing;
+						if (!pairing) return;
+						const { canceled, filePath } = await dialog.showSaveDialog({
+							title: "Save Phone Connection File", defaultPath: "learnharness-pc.lhconnect",
+							filters: [{ name: "LearnHarness connection", extensions: ["lhconnect"] }],
+						});
+						if (canceled || !filePath) return;
+						try { await fs.promises.writeFile(filePath, JSON.stringify(pairing, null, 2), "utf8"); }
+						catch (error) { dialog.showErrorBox("LearnHarness", `Could not save the phone connection file. ${error.message}`); }
+					},
+				}] : [])] : []),
 				{ type: "separator" },
 				{ role: "hide" },
 				{ role: "hideOthers" },
@@ -722,6 +756,19 @@ async function main() {
 		await startServer(new URL(url).port);
 		await waitUntilUp(url);
 		log(`server up: ${url}`);
+		try {
+			const profile = app.getPath("userData");
+			const config = readSharedConfig(profile);
+			if (config) {
+				sharedLearning = await startSharedLearning(config, {
+					upstream: url, desktopSecret: desktopAPISecret, signingKey: loadSigningKey(profile, safeStorage),
+				});
+				log(`shared learning listening at ${sharedLearning.url}`);
+			}
+		} catch (error) {
+			log(`shared learning could not start: ${error.message}`);
+			void dialog.showMessageBox({ type: "warning", message: "Shared Learning could not start", detail: error.message });
+		}
 	} else {
 		log(`dev mode: ${devUrl} — waiting for server`);
 		const { waitForDevServer } = require("./dev-server-readiness.cjs");

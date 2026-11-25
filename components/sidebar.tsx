@@ -435,6 +435,7 @@ export type SessionKindFilter = "teach" | "all" | "practice";
 const KIND_FILTER_KEY = "lh:session-kind-filter";
 
 function SessionsSidebar() {
+	const { android: androidApp } = useAndroidLayout();
 	const { appearance: { compactSessionList } } = useAppearance();
 	const interactions = useInteractionLayers();
 	const { open, toggle } = useSidebar();
@@ -1087,6 +1088,10 @@ function SessionsSidebar() {
 					    New session — quiet, bottom-pinned, opens the centered
 					    dialog (also mod+, in the keyboard registry). */}
 					<div className="px-3 pb-3 pt-1">
+						{androidApp && <a href="/_lh-client/settings" data-testid="pc-connection-entry"
+							className="flex min-h-12 items-center rounded-md px-2 text-xs uppercase tracking-wider text-muted-foreground hover:bg-accent hover:text-foreground">
+							PC connection
+						</a>}
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"

@@ -30,6 +30,21 @@ async function start() {
 	const dir = __dirname;
 	process.chdir(dir);
 	process.env.NODE_ENV = "production";
+	const connectionFile = process.env.LH_SHARED_CONNECTION_FILE;
+	if (connectionFile) {
+		const share = require("./shared-client.cjs").createSharedClient(connectionFile);
+		const server = http.createServer((request, response) => {
+			if (!authorized(request, server.address().port)) {
+				response.writeHead(403, { "Cache-Control": "no-store" }).end();
+				return;
+			}
+			share(request, response);
+		});
+		server.on("upgrade", (_request, socket) => socket.destroy());
+		await listen(server);
+		console.log(`LH_ANDROID_READY ${server.address().port}`);
+		return;
+	}
 	process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(require("./android-next-config.json"));
 	if (!process.features.inspector) {
 		// Next's production logging probes inspector.url(). Node Mobile ships
@@ -63,20 +78,23 @@ async function start() {
 		});
 	});
 	server.on("upgrade", (_request, socket) => socket.destroy());
-	async function listen(port) {
-		server.listen(port, host);
-		await once(server, "listening");
-	}
-	try {
-		await listen(readyPort);
-	} catch (error) {
-		if (error.code !== "EADDRINUSE" || readyPort === 0) throw error;
-		await listen(0);
-	}
+	await listen(server);
 	const { port } = server.address();
 	const handlers = await getRequestHandlers({ dir, port, hostname: host, server, isDev: false });
 	handle = handlers.requestHandler;
 	console.log(`LH_ANDROID_READY ${port}`);
+}
+
+async function listen(server) {
+	const bind = async port => {
+		server.listen(port, host);
+		await once(server, "listening");
+	};
+	try { await bind(readyPort); }
+	catch (error) {
+		if (error.code !== "EADDRINUSE" || readyPort === 0) throw error;
+		await bind(0);
+	}
 }
 
 start().catch((error) => {

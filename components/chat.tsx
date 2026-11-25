@@ -973,7 +973,7 @@ export function Chat({
 	 * is null, and the thinking field is left alone by design. */
 	const dictationWasActiveRef = useRef(false);
 	const composerInputRef = useRef<HTMLDivElement>(null);
-	const { compact: compactAndroid } = useAndroidLayout();
+	const { compact: compactAndroid, shared } = useAndroidLayout();
 	const [toolsAnchor, setToolsAnchor] = useState<HTMLDivElement | null>(null);
 
 	// CITE (2026-10-31): selected tutor text → a citation chip in the
@@ -1728,10 +1728,10 @@ export function Chat({
 							sheet.close();
 							requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(kbdEventForAction("find"))));
 						}}>Find in session</button>
-						<button type="button" className="lh-android-sheet-action" onClick={() => {
+						{!shared && <button type="button" className="lh-android-sheet-action" onClick={() => {
 							sheet.close();
 							requestAnimationFrame(openModelPicker);
-						}}>Session model</button>
+						}}>Session model</button>}
 					</>}
 					{planTree && (
 						<Hint label="Open the full plan" side="bottom">

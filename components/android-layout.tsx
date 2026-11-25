@@ -3,16 +3,16 @@
 import { createContext, useContext, useLayoutEffect, useState } from "react";
 
 const layoutDefault = { compact: false, drawer: false };
-const AndroidLayoutContext = createContext({ android: false, ...layoutDefault });
+const AndroidLayoutContext = createContext({ android: false, shared: false, ...layoutDefault });
 
 export function useAndroidLayout() {
 	return useContext(AndroidLayoutContext);
 }
 
-export function AndroidLayoutProvider({ android, children }: { android: boolean; children: React.ReactNode }) {
+export function AndroidLayoutProvider({ android, shared = false, children }: { android: boolean; shared?: boolean; children: React.ReactNode }) {
 	const [layout, setLayout] = useState(layoutDefault);
 	useLayoutEffect(() => {
-		if (!android) return;
+		if (!android && !shared) return;
 		const root = document.documentElement;
 		let width = 0;
 		let restingHeight = 0;
@@ -51,6 +51,6 @@ export function AndroidLayoutProvider({ android, children }: { android: boolean;
 			cancelAnimationFrame(frame);
 			root.classList.remove("lh-android-compact", "lh-android-drawer", "lh-android-keyboard");
 		};
-	}, [android]);
-	return <AndroidLayoutContext.Provider value={{ android, ...layout }}>{children}</AndroidLayoutContext.Provider>;
+	}, [android, shared]);
+	return <AndroidLayoutContext.Provider value={{ android, shared, ...layout }}>{children}</AndroidLayoutContext.Provider>;
 }

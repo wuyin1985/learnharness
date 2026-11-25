@@ -353,6 +353,13 @@ body {
 	background: var(--color-accent);
 }
 
+.lh-shared-learning :is([data-testid="settings-entry"], [data-testid="import-notes"],
+	[data-testid="attach-files"], [data-testid="dictation-toggle"],
+	[data-testid="stats-model"], [data-testid="stats-thinking"],
+	[data-testid="setup-cta"], [data-testid="setup-cta-keys"]) {
+	display: none;
+}
+
 /* Teaching prose (the markdown renderer's container gets .lh-prose):
    Source Sans 3 with the size/leading tokens; emphasis color bound to
    the settings-ready tokens. */

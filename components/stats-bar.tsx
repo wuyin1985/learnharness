@@ -81,7 +81,7 @@ export function StatsBar({
 	dictationActive?: boolean;
 	dictationError?: boolean;
 }) {
-	const { compact } = useAndroidLayout();
+	const { compact, shared } = useAndroidLayout();
 	const [attachmentStatus, setAttachmentStatus] = useState<{ uploading: boolean; error?: string }>();
 	const [open, setOpen] = useState(false);
 	const [selectedModel, setSelectedModel] = useState<string | undefined>();
@@ -200,16 +200,16 @@ export function StatsBar({
 			{compact && attachmentStatus?.uploading && <p role="status">Attaching files…</p>}
 			{compact && attachmentStatus?.error && <p role="alert" className="break-words text-error">{attachmentStatus.error}</p>}
 			{visibleDictation && dictation}
-			<AndroidActions label="Composer tools" anchor={toolsAnchor} composer closeWhile={dictationActive}>
+			{shared && !chatId ? <div hidden><ModelControl onModelChange={modelChanged} /></div> : <AndroidActions label="Composer tools" anchor={toolsAnchor} composer closeWhile={dictationActive}>
 				{sheet => <>
-					{sheet && toolsAnchor && attachmentEditor && <AttachFilesButton editorRef={attachmentEditor}
+					{!shared && sheet && toolsAnchor && attachmentEditor && <AttachFilesButton editorRef={attachmentEditor}
 						androidSheet={{ onPick: sheet.close, onStatus: setAttachmentStatus }} />}
 					{!sheet && summary}
 					{!visibleDictation && dictation}
 					<ModelControl chatId={chatId} onModelChange={modelChanged} shortcut={sheet} />
 					{sheet && summary}
 				</>}
-			</AndroidActions>
+			</AndroidActions>}
 		</div>
 	);
 }

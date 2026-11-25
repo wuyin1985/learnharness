@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Source_Sans_3 } from "next/font/google";
 import { connection } from "next/server";
+import { headers } from "next/headers";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import { AppShell, SidebarProvider } from "@/components/sidebar";
@@ -10,7 +11,7 @@ import { ServerEventsProvider } from "@/components/server-events";
 import { AppearanceProvider } from "@/components/settings/appearance";
 import UpdateBanner from "@/components/update-banner";
 import { PluginsProvider } from "@/components/plugins";
-import { readThemeBoot } from "@/src/server";
+import { isSharedLearningRequest, readThemeBoot } from "@/src/server";
 
 // Chrome = JetBrains Mono, teaching prose = Source Sans 3, titles = CMU
 // Serif (the bundled lh-cmu @font-face in globals.css — no CDN).
@@ -29,11 +30,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 	// prerendered route (settings) would bake the BUILD machine's record.
 	await connection();
 	const { appearance, theme, vars } = readThemeBoot();
-	const android = Boolean(process.env.LH_ANDROID_ATTACHMENTS);
+	const requestHeaders = await headers();
+	const shared = isSharedLearningRequest(requestHeaders);
+	const android = Boolean(process.env.LH_ANDROID_ATTACHMENTS) ||
+		(shared && /\bLearnHarnessAndroid\//.test(requestHeaders.get("user-agent") ?? ""));
 	return (
 		<html
 			lang="en"
-			className={`${theme.mode} ${ui.variable} ${prose.variable}${android ? " lh-android" : ""}`}
+			className={`${theme.mode} ${ui.variable} ${prose.variable}${android ? " lh-android" : ""}${shared ? " lh-shared-learning" : ""}`}
 			style={vars as React.CSSProperties}
 			suppressHydrationWarning
 		>
@@ -43,7 +47,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 			<ServerEventsProvider>
 				<PluginsProvider>
 					<AppearanceProvider initialAppearance={appearance} initialTheme={theme}>
-						<AndroidLayoutProvider android={android}><SidebarProvider>
+						<AndroidLayoutProvider android={android} shared={shared}><SidebarProvider>
 							<ActivityProvider>
 								<AppShell>{children}</AppShell>
 							</ActivityProvider>

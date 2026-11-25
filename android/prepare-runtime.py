@@ -138,7 +138,7 @@ def package_payload(abis):
                     payload.write(file, file.relative_to(SERVER).as_posix())
         config = json.loads((SERVER / ".next/required-server-files.json").read_text(encoding="utf-8"))
         payload.writestr("android-next-config.json", json.dumps(config["config"]))
-        for name in ("engine.cjs", "inspector.cjs"):
+        for name in ("engine.cjs", "inspector.cjs", "shared-client.cjs"):
             payload.write(ANDROID / name, name)
         package_highlighter(payload)
         package_canvas(abis, OUTPUT / "jniLibs", payload)

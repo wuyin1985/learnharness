@@ -2,6 +2,7 @@ package ai.learnharness.android;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -35,6 +36,7 @@ import java.util.Collections;
 public final class MainActivity extends Activity {
     private static final int FILE_PICKER = 10;
     private static final int MICROPHONE = 11;
+    private static final int PC_CONNECTION_PICKER = 12;
     private static final int MIN_WEBVIEW = 111;
     private final LocalEngine.Listener engineListener = this::engineChanged;
     private FrameLayout root;
@@ -83,6 +85,10 @@ public final class MainActivity extends Activity {
         status.addView(statusText);
         retry = new Button(this);
         status.addView(retry);
+        var pcConnection = new Button(this);
+        pcConnection.setText(R.string.pc_connection);
+        pcConnection.setOnClickListener(ignored -> showPcConnection());
+        status.addView(pcConnection);
         root.addView(status, new FrameLayout.LayoutParams(-1, -1));
         LocalEngine.get().observe(engineListener);
         LocalEngine.get().start(this);
@@ -143,6 +149,10 @@ public final class MainActivity extends Activity {
         cookies.setAcceptThirdPartyCookies(content, false);
         content.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView web, WebResourceRequest request) {
+                if (request.isForMainFrame() && isAppUrl(request.getUrl()) && "/_lh-client/settings".equals(request.getUrl().getPath())) {
+                    showPcConnection();
+                    return true;
+                }
                 if (isAppUrl(request.getUrl())) return false;
                 if (request.isForMainFrame()) openExternal(request.getUrl());
                 return true;
@@ -233,7 +243,7 @@ public final class MainActivity extends Activity {
 
     private void webError() {
         destroyWebView();
-        showStatus(R.string.web_failed, R.string.retry, () -> {
+        showStatus(connection != null && connection.shared() ? R.string.pc_connection_failed : R.string.web_failed, R.string.retry, () -> {
             if (connection != null) launchWebView(connection);
         });
     }
@@ -267,6 +277,17 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code, result, data);
+        if (code == PC_CONNECTION_PICKER) {
+            if (result == RESULT_OK && data != null) {
+                try {
+                    SharedPcConnection.importFile(this, data.getData());
+                    restartForPcConnection();
+                } catch (Exception ignored) {
+                    new AlertDialog.Builder(this).setMessage(R.string.pc_file_invalid).setPositiveButton(android.R.string.ok, null).show();
+                }
+            }
+            return;
+        }
         if (code != FILE_PICKER) return;
         Uri[] files = null;
         if (result == RESULT_OK && data != null) {
@@ -282,6 +303,31 @@ public final class MainActivity extends Activity {
             }
         }
         completeFileSelection(files);
+    }
+
+    private void showPcConnection() {
+        var dialog = new AlertDialog.Builder(this).setTitle(R.string.pc_connection)
+                .setMessage(R.string.pc_connection_hint)
+                .setPositiveButton(R.string.pc_import_file, (value, which) -> {
+                    var picker = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+                    try { startActivityForResult(picker, PC_CONNECTION_PICKER); }
+                    catch (ActivityNotFoundException ignored) { /* No file provider installed. */ }
+                }).setNegativeButton(android.R.string.cancel, null);
+        if (SharedPcConnection.file(this).isFile()) {
+            dialog.setNeutralButton(R.string.pc_disconnect, (value, which) -> {
+                try { SharedPcConnection.disconnect(this); restartForPcConnection(); }
+                catch (java.io.IOException ignored) {
+                    new AlertDialog.Builder(this).setMessage(R.string.pc_connection_failed).setPositiveButton(android.R.string.ok, null).show();
+                }
+            });
+        }
+        dialog.show();
+    }
+
+    private void restartForPcConnection() {
+        destroyWebView();
+        restoredPath = "/";
+        LocalEngine.get().restart(this);
     }
 
     private void completeFileSelection(Uri[] files) {

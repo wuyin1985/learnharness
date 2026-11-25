@@ -1,5 +1,5 @@
-import { handleChatRequest } from "@/src/server";
+import { handleChatRequest, withSharedLearning } from "@/src/server";
 
 export async function POST(req: Request) {
-	return handleChatRequest(req);
+	return withSharedLearning(req, () => handleChatRequest(req));
 }

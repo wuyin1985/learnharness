@@ -7,4 +7,10 @@
     <string name="retry">Retry</string>
     <string name="old_webview">Update Android System WebView to use LearnHarness on this device.</string>
     <string name="update_webview">Update WebView</string>
+    <string name="pc_connection">PC connection</string>
+    <string name="pc_connection_hint">Connect to your company VPN and choose the connection file saved by LearnHarness on your PC.</string>
+    <string name="pc_import_file">Choose connection file</string>
+    <string name="pc_disconnect">Use this device</string>
+    <string name="pc_connection_failed">Couldn’t connect to the PC. Check the PC, company VPN, and connection file.</string>
+    <string name="pc_file_invalid">Couldn’t read this LearnHarness connection file.</string>
 </resources>

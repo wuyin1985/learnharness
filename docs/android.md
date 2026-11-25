@@ -8,6 +8,8 @@ Use Android 9 or newer with Android System WebView 111 or newer. The APK support
 
 Open **Set up models**, add a provider key or an OpenAI-compatible endpoint, and choose the Strong, Cheap, and Vision models. Model requests need network access when the selected provider is remote. Dictation and web research also use their respective services when configured.
 
+Use [PC connection](shared-pc.md) from the session sidebar to continue a session hosted by a Windows PC over an approved network.
+
 Use **Attach files** in the composer tools, or the paperclip in a wider window, to copy selected files into LearnHarness and insert their references in the session. A selection can contain up to 32 files and 25 MB in total. The original files remain in their provider. Android's clear-storage and uninstall commands remove the learning profile and those copies.
 
 Use **Connect** next to ChatGPT in **Settings → Providers** to open sign-in in the system browser. Return to LearnHarness after the browser confirms sign-in.

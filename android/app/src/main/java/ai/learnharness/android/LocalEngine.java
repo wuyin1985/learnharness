@@ -30,11 +30,14 @@ final class LocalEngine {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ScheduledExecutorService workers = Executors.newScheduledThreadPool(2);
     private final ArrayList<Listener> listeners = new ArrayList<>();
+    private final Object processLock = new Object();
     private Connection connection;
+    private Process activeProcess;
+    private volatile long generation;
     private boolean starting;
     private boolean failed;
 
-    record Connection(int port, String token) {
+    record Connection(int port, String token, boolean shared) {
         String origin() { return "http://127.0.0.1:" + port; }
     }
 
@@ -56,14 +59,26 @@ final class LocalEngine {
         starting = true;
         failed = false;
         publish();
-        workers.execute(() -> run(context.getApplicationContext()));
+        long attempt = ++generation;
+        workers.execute(() -> run(context.getApplicationContext(), attempt));
+    }
+
+    void restart(Context context) {
+        synchronized (processLock) {
+            generation++;
+            if (activeProcess != null) activeProcess.destroy();
+            activeProcess = null;
+        }
+        connection = null;
+        starting = false;
+        start(context);
     }
 
     private void publish() {
         for (Listener listener : new ArrayList<>(listeners)) listener.changed(connection, failed);
     }
 
-    private void run(Context context) {
+    private void run(Context context, long attempt) {
         Process process = null;
         try {
             File runtime = unpack(context);
@@ -72,6 +87,8 @@ final class LocalEngine {
             File temp = directory(new File(context.getCacheDir(), "node"));
             File libraries = new File(context.getApplicationInfo().nativeLibraryDir);
             String token = randomToken();
+            File sharedConnection = SharedPcConnection.file(context);
+            boolean shared = sharedConnection.isFile();
             var preferences = context.getSharedPreferences("engine", Context.MODE_PRIVATE);
             ProcessBuilder builder = new ProcessBuilder(
                     new File(libraries, "liblh-node.so").getAbsolutePath(),
@@ -86,13 +103,18 @@ final class LocalEngine {
             env.put("LH_ANDROID_PARENT_PID", Integer.toString(android.os.Process.myPid()));
             env.put("LH_ANDROID_TOKEN", token);
             env.put("LH_ANDROID_PORT", Integer.toString(preferences.getInt("port", 0)));
+            if (shared) env.put("LH_SHARED_CONNECTION_FILE", sharedConnection.getAbsolutePath());
             env.put("LH_DATA_DIR", data.getAbsolutePath());
             env.put("LH_AUTH_FILE", new File(profile, "auth.json").getAbsolutePath());
             env.put("LH_ANDROID_ATTACHMENTS", directory(new File(profile, "attachments")).getAbsolutePath());
             env.put("HOME", profile.getAbsolutePath());
             env.put("TMPDIR", temp.getAbsolutePath());
             env.put("NEXT_TELEMETRY_DISABLED", "1");
-            process = builder.start();
+            synchronized (processLock) {
+                if (generation != attempt) return;
+                process = builder.start();
+                activeProcess = process;
+            }
             var watchdog = workers.schedule(process::destroyForcibly, 45, TimeUnit.SECONDS);
             Process child = process;
             try (var lines = new BufferedReader(new InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))) {
@@ -104,7 +126,8 @@ final class LocalEngine {
                         Log.i(TAG, "Local engine ready");
                         preferences.edit().putInt("port", port).apply();
                         main.post(() -> {
-                            connection = new Connection(port, token);
+                            if (generation != attempt) return;
+                            connection = new Connection(port, token, shared);
                             starting = false;
                             publish();
                         });
@@ -120,7 +143,11 @@ final class LocalEngine {
             Log.e(TAG, "Could not run the local engine", error);
         } finally {
             if (process != null && process.isAlive()) process.destroyForcibly();
+            synchronized (processLock) {
+                if (activeProcess == process) activeProcess = null;
+            }
             main.post(() -> {
+                if (generation != attempt) return;
                 connection = null;
                 starting = false;
                 failed = true;
@@ -145,7 +172,7 @@ final class LocalEngine {
         return path;
     }
 
-    private static File unpack(Context context) throws Exception {
+    private static synchronized File unpack(Context context) throws Exception {
         File parent = context.getNoBackupFilesDir();
         String id;
         try (var reader = new BufferedReader(new InputStreamReader(

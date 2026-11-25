@@ -40,7 +40,7 @@ export function Home({
 	rendering?: boolean;
 }) {
 	const controller = useOptionalInteractionLayers();
-	const { android, compact } = useAndroidLayout();
+	const { android, compact, shared } = useAndroidLayout();
 	const [toolsAnchor, setToolsAnchor] = useState<HTMLDivElement | null>(null);
 	const router = useRouter();
 	const pathname = usePathname();
@@ -282,10 +282,10 @@ export function Home({
 							}
 						}}
 						placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
-						autoFocus={!android}
+						autoFocus={!android && !shared}
 						className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
 					/>
-					{compact ? <div ref={setToolsAnchor} className="order-first shrink-0" /> : <AttachFilesButton editorRef={topicInputRef} />}
+					{!shared && (compact ? <div ref={setToolsAnchor} className="order-first shrink-0" /> : <AttachFilesButton editorRef={topicInputRef} />)}
 					{/* No tooltip on the start square — the ↵ glyph is the
 					    affordance (owner, subtlety round 2026-09-25). */}
 					<button

@@ -116,7 +116,7 @@ export function DraftShell({
 	overlay?: ReactNode;
 }) {
 	const controller = useOptionalInteractionLayers();
-	const { android, compact } = useAndroidLayout();
+	const { android, compact, shared } = useAndroidLayout();
 	const [toolsAnchor, setToolsAnchor] = useState<HTMLDivElement | null>(null);
 	const pathname = usePathname();
 	const bodyRef = useRef<HTMLDivElement>(null);
@@ -212,8 +212,8 @@ export function DraftShell({
 										onStop={() => {}}
 										canSend={canSend}
 										inputRef={composerInputRef}
-										onToolsAnchor={compact ? setToolsAnchor : undefined}
-										autoFocus={!android}
+										onToolsAnchor={compact && !shared ? setToolsAnchor : undefined}
+										autoFocus={!android && !shared}
 										onEscape={dictation.active ? dictation.cancel : undefined}
 										// The opening question, same as the graph view's new-session
 										// input (owner refinement round, 2026-09-24) — no lesson has
