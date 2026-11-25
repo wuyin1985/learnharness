@@ -1,0 +1,50 @@
+name: Android
+
+on:
+  push:
+    branches: [main, "android/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: sdkmanager "platforms;android-35" "build-tools;36.0.0" "ndk;27.2.12479018"
+      - run: npm ci
+      - run: npm run plugins:setup
+      - run: npm run build
+      - run: node scripts/build-server.mjs
+      - run: python3 android/prepare-runtime.py --ndk "$ANDROID_HOME/ndk/27.2.12479018"
+      - name: Smoke-test the packaged server
+        run: |
+          runtime="$(mktemp -d)"
+          python3 -m zipfile -e android/app/build/generated/learnharness/assets/runtime.zip "$runtime"
+          node android/smoke-runtime.mjs "$runtime"
+      - run: ./android/gradlew -p android :app:assembleDebug
+      - uses: actions/upload-artifact@v7
+        with:
+          name: learnharness-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          compression-level: 0

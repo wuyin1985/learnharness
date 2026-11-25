@@ -29,3 +29,10 @@ xai-credentials.json*
 
 # dev-fresh launcher scratch (fresh-user sim): disposable per launch
 .fresh-data/
+
+# Android runtime downloads, generated APK inputs and local Android tooling.
+/.android-work/
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties

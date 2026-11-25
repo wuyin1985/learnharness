@@ -85,11 +85,13 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 	const controller = useOptionalInteractionLayers();
 	const pickerRef = useRef<HTMLInputElement>(null);
 	const desktop = useDesktopPaths();
+	const android = useSyncExternalStore(noSubscribe, () => document.documentElement.classList.contains("lh-android"), () => false);
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const popupRef = useRef<HTMLDivElement>(null);
 	const choosingFolder = useRef(false);
 	const [open, setOpen] = useState(false);
 	const [notice, setNotice] = useState("");
+	const [uploading, setUploading] = useState(false);
 	const [placement, setPlacement] = useState<ReturnType<typeof attachmentPopupPlacement> | null>(null);
 	const positioned = placement !== null;
 	// Like MenuShell, portal to body with viewport-capped, reanchored placement.
@@ -140,6 +142,25 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 		} catch { setNotice("Could not choose a folder. Try again."); }
 		finally { choosingFolder.current = false; }
 	};
+	const uploadAndroidFiles = async (files: File[]) => {
+		const editor = editorRef.current;
+		const form = new FormData();
+		for (const file of files) form.append("files", file);
+		setNotice("");
+		setUploading(true);
+		try {
+			const response = await fetch("/api/android/attachments", { method: "POST", body: form });
+			const result: { paths?: string[]; error?: string } = await response.json();
+			if (!response.ok || !result.paths?.length) throw new Error(result.error || "Could not attach the selected files.");
+			if (editor?.isConnected && editor === editorRef.current) {
+				editor.dispatchEvent(new CustomEvent(INSERT_FILE_PATHS_EVENT, { detail: result.paths }));
+			}
+		} catch (error) {
+			setNotice(error instanceof Error ? error.message : "Could not attach the selected files.");
+		} finally {
+			setUploading(false);
+		}
+	};
 	return (
 		<div className="relative shrink-0"
 			onBlur={(event) => { if (isInteractionScopeEligible(popupRef.current ?? buttonRef.current, controller) && !event.currentTarget.contains(event.relatedTarget) && !popupRef.current?.contains(event.relatedTarget)) setOpen(false); }}>
@@ -150,22 +171,31 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 				hidden
 				data-testid="attach-files-input"
 				onChange={(e) => {
-					const resolve = window.lh?.getPathForFile;
-					const { paths } = resolve ? pathsForFiles(Array.from(e.currentTarget.files ?? []), resolve) : { paths: [] };
-					if (paths.length > 0) editorRef.current?.dispatchEvent(new CustomEvent(INSERT_FILE_PATHS_EVENT, { detail: paths }));
+					const files = Array.from(e.currentTarget.files ?? []);
 					e.currentTarget.value = ""; // allow re-picking the same file
+					if (android) {
+						if (files.length > 0) void uploadAndroidFiles(files);
+						return;
+					}
+					const resolve = window.lh?.getPathForFile;
+					const { paths } = resolve ? pathsForFiles(files, resolve) : { paths: [] };
+					if (paths.length > 0) editorRef.current?.dispatchEvent(new CustomEvent(INSERT_FILE_PATHS_EVENT, { detail: paths }));
 				}}
 			/>
-			<Hint label={desktop ? "Attach files or a folder" : BROWSER_NOTICE}>
+			<Hint label={android ? "Attach files" : desktop ? "Attach files or a folder" : BROWSER_NOTICE}>
 				<button
 					ref={buttonRef}
 					type="button"
 					aria-label="Attach files"
-					aria-disabled={!desktop}
-					aria-haspopup="menu"
-					aria-expanded={open}
+					aria-disabled={(!desktop && !android) || uploading}
+					aria-busy={uploading}
+					aria-haspopup={desktop ? "menu" : undefined}
+					aria-expanded={desktop ? open : undefined}
 					data-testid="attach-files"
-					onClick={() => { if (desktop) { setNotice(""); setOpen(!open); } }}
+					onClick={() => {
+						if (android && !uploading) pickerRef.current?.click();
+						else if (desktop) { setNotice(""); setOpen(!open); }
+					}}
 					className="flex size-10 shrink-0 items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground"
 				>
 					<PaperclipIcon className="size-4" />

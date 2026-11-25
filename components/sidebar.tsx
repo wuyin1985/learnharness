@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { MenuShell } from "@/components/menu-shell";
@@ -31,7 +31,8 @@ import { PluginWidgets } from "@/components/plugins";
 import { PluginSidebarActions } from "@/components/plugin-chrome";
 import { HostContentRootContext, HostRouteLifetimeProvider } from "@/components/host-content-root";
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
-import { InteractionLayersProvider, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
+import { InteractionLayersProvider, useInteractionLayer, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
+import { INTERACTION_LAYER_Z_BASE } from "@/components/host-dialog";
 import { StartupMessage, type StartupMessageOffer } from "@/components/startup-message";
 
 /**
@@ -106,12 +107,16 @@ const SidebarContext = createContext<{ open: boolean; toggle: () => void }>({
 	open: false,
 	toggle: () => {},
 });
+const AndroidSidebarContext = createContext<{ compact: boolean; close: () => void }>({
+	compact: false,
+	close: () => {},
+});
 
 export function useSidebar() {
 	return useContext(SidebarContext);
 }
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
+export function SidebarProvider({ children, android = false }: { children: React.ReactNode; android?: boolean }) {
 	useEffect(() => {
 		const bridge = window.lh?.chatgpt;
 		if (!bridge) return;
@@ -124,6 +129,21 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [narrow, setNarrow] = useState(false);
 	const [mounted, setMounted] = useState(false);
+	const [compact, setCompact] = useState(false);
+	const [drawerOpen, setDrawerOpen] = useState(false);
+	const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+	useEffect(() => {
+		if (!android) return;
+		const query = window.matchMedia("(max-width: 839px)");
+		const update = () => {
+			setCompact(query.matches);
+			closeDrawer();
+		};
+		update();
+		query.addEventListener("change", update);
+		return () => query.removeEventListener("change", update);
+	}, [android, closeDrawer]);
 
 	useEffect(() => {
 		// Electron shell detection (merged chrome, 2026-09-17): keys the
@@ -166,6 +186,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	const toggle = useCallback(() => {
+		if (compact) {
+			setDrawerOpen((value) => !value);
+			return;
+		}
 		// Opening while narrow (auto-closed, or the user's own closed-at-
 		// narrow): ask the shell to widen to the threshold — the resize
 		// listener flips `narrow` and the sidebar appears. The preference
@@ -181,7 +205,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 			localStorage.setItem(STORAGE_KEY, v ? "0" : "1");
 			return !v;
 		});
-	}, [narrow, open]);
+	}, [compact, narrow, open]);
 
 	// ⌘B: the global shortcut dispatches kbdEventForAction("toggle-sidebar")
 	// and the context answers on exactly that name — the shared spelling
@@ -197,9 +221,11 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, [toggle]);
 
 	return (
-		<SidebarContext.Provider value={{ open: open && !narrow, toggle }}>
+		<SidebarContext.Provider value={{ open: compact ? drawerOpen : open && !narrow, toggle }}>
+			<AndroidSidebarContext.Provider value={{ compact, close: closeDrawer }}>
 			{/* transitions gated on mount: no slide-in flash on page load */}
 			<div className={cn("flex h-dvh", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
+			</AndroidSidebarContext.Provider>
 		</SidebarContext.Provider>
 	);
 }
@@ -218,11 +244,13 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
  *  no popping in either direction. */
 export function SidebarToggle() {
 	const { open, toggle } = useSidebar();
+	const { compact } = useContext(AndroidSidebarContext);
+	const collapsed = open && !compact;
 	return (
 		<span
 			className={cn(
 				"sidebar-motion lh-no-drag relative flex h-9 shrink-0 overflow-hidden duration-200",
-				open ? "w-0 -mr-3" : "w-9 mr-0 lh-closed-toggle",
+				collapsed ? "w-0 -mr-3" : "w-9 mr-0 lh-closed-toggle",
 			)}
 		>
 			<Hint label="Open sidebar" action="toggle-sidebar">
@@ -230,6 +258,7 @@ export function SidebarToggle() {
 				variant="ghost"
 				size="icon"
 				aria-label="Open sidebar"
+				aria-expanded={open}
 				aria-hidden={open}
 				tabIndex={open ? -1 : 0}
 				onClick={toggle}
@@ -418,6 +447,21 @@ function SessionsSidebar() {
 	const { appearance: { compactSessionList } } = useAppearance();
 	const interactions = useInteractionLayers();
 	const { open, toggle } = useSidebar();
+	const { compact, close } = useContext(AndroidSidebarContext);
+	const drawer = compact && open;
+	const drawerRef = useRef<HTMLElement>(null);
+	const closeButton = useRef<HTMLButtonElement>(null);
+	const layer = useInteractionLayer({
+		kind: "modal",
+		enabled: drawer,
+		rootRef: drawerRef,
+		onClose: () => { close(); return "closed"; },
+		focusInitial: () => closeButton.current?.focus(),
+	});
+	useLayoutEffect(() => {
+		if (!drawer) return;
+		closeButton.current?.focus();
+	}, [drawer]);
 	const [chats, setChats] = useState<ChatListItem[] | null>(null);
 	const [query, setQuery] = useState("");
 	const [kindFilter, setKindFilter] = useState<SessionKindFilter>("all");
@@ -430,6 +474,7 @@ function SessionsSidebar() {
 		window.localStorage.setItem(KIND_FILTER_KEY, f);
 	}, []);
 	const pathname = usePathname();
+	useEffect(close, [pathname, close]);
 	const router = useRouter();
 	const { open: openSettings } = useSettingsDialog();
 
@@ -438,8 +483,9 @@ function SessionsSidebar() {
 	   message is sent (and that message becomes its title). Search: a
 	   client-side filter over the poll snapshot — no server round trip. */
 	const newSession = useCallback(() => {
+		close();
 		router.push("/chat/new");
-	}, [router]);
+	}, [close, router]);
 
 	/* FUZZY (owner round 8, 2026-10-05): subsequence match ranked by
 	 * fuzzyScore — prefix beats word-boundary beats scattered. FOLDERS
@@ -819,12 +865,20 @@ function SessionsSidebar() {
 		);
 	});
 
-	return (
+	return (<>
+		{drawer && <div aria-hidden="true" className="fixed inset-0 bg-foreground/25"
+			style={{ zIndex: INTERACTION_LAYER_Z_BASE + layer.order - 1 }} onClick={close} />}
 		<aside
-			className={cn("sidebar-motion shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
+			ref={drawerRef}
+			className={cn("sidebar-motion lh-session-sidebar shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
+			style={drawer ? { zIndex: INTERACTION_LAYER_Z_BASE + layer.order } : undefined}
+			role={drawer ? "dialog" : undefined}
+			aria-modal={drawer || undefined}
+			aria-label={drawer ? "Sessions" : undefined}
 			aria-hidden={!open}
+			inert={!open}
 		>
-			<div className="flex h-full w-72 flex-col border-r bg-background">
+			<div className="lh-sidebar-content flex h-full w-72 flex-col border-r bg-background">
 				{/* LH wordmark — the owner's header; close toggle sits at the edge.
 				    Merged chrome (2026-09-17): in Electron this band is the
 				    window's drag surface and starts after the traffic lights
@@ -855,6 +909,7 @@ function SessionsSidebar() {
 					</Hint>
 					<Hint label="Close sidebar" action="toggle-sidebar">
 						<Button
+							ref={closeButton}
 							variant="ghost"
 							size="icon"
 							aria-label="Close sidebar"
@@ -883,7 +938,7 @@ function SessionsSidebar() {
 						type="button"
 						data-testid="new-session-practice"
 						title="Practice"
-						onClick={() => router.push("/chat/new?mode=practice")}
+						onClick={() => { close(); router.push("/chat/new?mode=practice"); }}
 						className="flex min-w-0 w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 					>
 						<DumbbellIcon className="size-3 shrink-0" />
@@ -1044,7 +1099,7 @@ function SessionsSidebar() {
 						<Hint label="Settings" action="open-settings" side="right">
 							<button
 								type="button"
-								onClick={() => openSettings()}
+								onClick={() => { close(); openSettings(); }}
 								data-testid="settings-entry"
 								className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 							>
@@ -1181,20 +1236,38 @@ function SessionsSidebar() {
 					}}
 					onDeleted={onFolderDeleted}
 				/>
-			</aside>
-	);
+		</aside>
+	</>);
+}
+
+function AndroidBackHandler() {
+	const layers = useInteractionLayers();
+	useEffect(() => {
+		const handle = (event: Event) => {
+			const top = layers.getTopLayer();
+			if (!top || top.kind === "view") return;
+			event.preventDefault();
+			layers.requestClose(top.id, "escape");
+		};
+		window.addEventListener("lh-android-back", handle);
+		return () => window.removeEventListener("lh-android-back", handle);
+	}, [layers]);
+	return null;
 }
 
 /** The app frame: sidebar inline + content. Rendered once in the root layout. */
 export function AppShell({ children }: { children: React.ReactNode }) {
 	const [contentRoot, setContentRoot] = useState<HTMLElement | null>(null);
 	const pathname = usePathname();
+	const { compact } = useContext(AndroidSidebarContext);
+	const { open } = useSidebar();
 	return (
 		<HostRouteLifetimeProvider pathname={pathname}>
 		<HostContentRootContext.Provider value={contentRoot}>
 			<InteractionLayersProvider><SettingsDialogProvider>
 				<SessionsSidebar />
-				<FilePathDropZone className="relative isolate min-w-0 flex-1" onContentRoot={setContentRoot}>{children}</FilePathDropZone>
+				<FilePathDropZone inert={compact && open} className="relative isolate min-w-0 flex-1" onContentRoot={setContentRoot}>{children}</FilePathDropZone>
+				<AndroidBackHandler />
 				{/* The single document-level keydown listener (keyboard wave A) —
 				    after the content in the tree, but it's window-level so order only
 				    matters for the events it dispatches, never for DOM priority. */}

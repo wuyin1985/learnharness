@@ -421,7 +421,7 @@ export function SettingsDialogBody({
 					</Hint>
 			</header>
 
-			<div className="flex min-h-0 flex-1">
+			<div className="lh-settings-columns flex min-h-0 flex-1">
 				{/* Left nav — mono labels and theme-inherited decorative icons,
 					    active = bg-accent. */}
 				<nav

@@ -28,10 +28,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 	// prerendered route (settings) would bake the BUILD machine's record.
 	await connection();
 	const { appearance, theme, vars } = readThemeBoot();
+	const android = Boolean(process.env.LH_ANDROID_ATTACHMENTS);
 	return (
 		<html
 			lang="en"
-			className={`${theme.mode} ${ui.variable} ${prose.variable}`}
+			className={`${theme.mode} ${ui.variable} ${prose.variable}${android ? " lh-android" : ""}`}
 			style={vars as React.CSSProperties}
 			suppressHydrationWarning
 		>
@@ -41,7 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 			<ServerEventsProvider>
 				<PluginsProvider>
 					<AppearanceProvider initialAppearance={appearance} initialTheme={theme}>
-						<SidebarProvider>
+						<SidebarProvider android={android}>
 							<ActivityProvider>
 								<AppShell>{children}</AppShell>
 							</ActivityProvider>

@@ -507,13 +507,47 @@ async function renderSvg(svg: string, opts: RenderSvgOptions = {}): Promise<Buff
 	// Native errors propagate to the existing visual-maker revision/failure
 	// handling, never executable browser markup or a system Chrome fallback.
 	const { width } = svgViewport(svg, opts);
+	const source = opts.nativeOnly ? svg : svgImageSource(svg);
+	if (process.env.LH_ANDROID_ATTACHMENTS) return renderAndroidSvg(source, width);
 	const { Resvg } = await import("@resvg/resvg-js");
-	const resvg = new Resvg(opts.nativeOnly ? svg : svgImageSource(svg), {
+	const resvg = new Resvg(source, {
 		fitTo: { mode: "width", value: width },
 		font: { loadSystemFonts: true },
 		background: "#ffffff",
 	});
 	return providerSafePng(resvg.render().asPng());
+}
+
+let androidSvgRenderer: Promise<{
+	Resvg: typeof import("@resvg/resvg-wasm").Resvg;
+	fontBuffers: Uint8Array[];
+}> | undefined;
+
+async function loadAndroidSvgRenderer() {
+	const { Resvg, initWasm } = await import("@resvg/resvg-wasm");
+	const root = process.cwd();
+	const wasm = await fs.promises.readFile(path.join(root, "node_modules/@resvg/resvg-wasm/index_bg.wasm"));
+	const bundled = await fs.promises.readFile(path.join(root, "public/fonts/cmunbx.ttf"));
+	const system = await fs.promises.readFile("/system/fonts/Roboto-Regular.ttf").catch(() => null);
+	await initWasm(new Uint8Array(wasm));
+	return { Resvg, fontBuffers: system ? [bundled, system] : [bundled] };
+}
+
+async function renderAndroidSvg(source: string, width: number): Promise<Buffer> {
+	const { Resvg, fontBuffers } = await (androidSvgRenderer ??= loadAndroidSvgRenderer());
+	const family = fontBuffers.length > 1 ? "Roboto" : "CMU Serif";
+	const renderer = new Resvg(source, {
+		fitTo: { mode: "width", value: width },
+		font: { fontBuffers, defaultFontFamily: family, sansSerifFamily: family, serifFamily: "CMU Serif" },
+		background: "#ffffff",
+	});
+	try {
+		const image = renderer.render();
+		try { return providerSafePng(Buffer.from(image.asPng())); }
+		finally { image.free(); }
+	} finally {
+		renderer.free();
+	}
 }
 
 // ─── PDF page rasterization (pdfjs paints, Skia hosts) ─────────────────

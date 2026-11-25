@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LearnHarness</string>
+    <string name="starting">Starting LearnHarness…</string>
+    <string name="start_failed">LearnHarness couldn’t start.</string>
+    <string name="web_failed">Couldn’t open LearnHarness.</string>
+    <string name="retry">Retry</string>
+    <string name="old_webview">Update Android System WebView to use LearnHarness on this device.</string>
+    <string name="update_webview">Update WebView</string>
+</resources>

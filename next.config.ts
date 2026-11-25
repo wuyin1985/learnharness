@@ -94,6 +94,7 @@ const nextConfig: NextConfig = {
 			// Wave E stage 2: resvg rasterizes visual-maker SVGs natively; same
 			// per-platform-binary story as the canvas above (one per build).
 			"node_modules/@resvg/resvg-js-*/**/*",
+			"node_modules/@resvg/resvg-wasm/**/*",
 			"node_modules/@earendil-works/pi-ai/dist/providers/data/**/*",
 			// Public native OAuth factories load these flows through variable imports.
 			// Electron main uses the same standalone SDK; the offline runtime gate
@@ -121,6 +122,7 @@ const nextConfig: NextConfig = {
 		"@napi-rs/canvas", // native binding — bundling breaks the .node require
 		"@silvia-odwyer/photon-node", // CJS loads its adjacent WASM from disk
 		"@resvg/resvg-js", // native binding — same
+		"@resvg/resvg-wasm", // Android loads the co-located WASM at runtime
 	],
 };
 
