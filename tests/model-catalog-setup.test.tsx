@@ -82,6 +82,27 @@ test("cold setup is loading, not keyless; failure/Retry does not invent a key st
 	await answer(1, empty); assert.ok(element("setup-stage-keys"));
 });
 
+test("ChatGPT sign-in confirms the connection while setup waits for model choices", async () => {
+	installFetch();
+	const empty = catalog(false);
+	empty.slots = { strong: null, cheap: null, vision: null };
+	await render(setup());
+	await answer(0, empty);
+	assert.ok(element("setup-stage-keys"));
+	assert.equal(document.querySelector('[data-testid="setup-chatgpt-connected"]'), null);
+
+	await act(async () => notifySettingsSaved("keys"));
+	await answer(1, {
+		...empty,
+		models: [{ ...a, provider: "chatgpt" }],
+		providers: [{ id: "chatgpt", envVar: "", keyPresent: true }],
+	});
+	assert.ok(element("setup-stage-pickers"));
+	assert.equal(element("setup-chatgpt-connected").textContent, "ChatGPT connected");
+	assert.equal(element("setup-save").hasAttribute("disabled"), true);
+	assert.deepEqual(writes, []);
+});
+
 test("cached setup is immediately usable; fresh metadata/untouched slots update without wiping model or thinking edits; failed refresh still allows exact-ID Save", async () => {
 	installFetch(); await warm();
 	await render(<><Reader />{setup()}</>);

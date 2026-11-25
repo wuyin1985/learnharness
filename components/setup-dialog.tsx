@@ -462,6 +462,9 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 					<div className="flex flex-col px-6 py-5">{keysBody}</div>
 				) : (
 					<div className="flex flex-col gap-4 overflow-y-auto px-6 py-5" data-testid="setup-stage-pickers">
+						{catalog?.models.some((model) => model.provider === "chatgpt") && (
+							<p role="status" data-testid="setup-chatgpt-connected" className="text-xs text-success">ChatGPT connected</p>
+						)}
 						<p className="text-xs text-muted-foreground">
 							Pick the model for each tier. All three are required before chats can start.
 						</p>
