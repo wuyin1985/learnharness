@@ -150,9 +150,13 @@ final class LocalEngine {
             id = reader.readLine();
         }
         if (id == null || !id.matches("[a-f0-9]{64}")) throw new IOException("Invalid runtime identifier");
+        File libraries = new File(context.getApplicationInfo().nativeLibraryDir);
+        // Android can relocate the extracted native libraries after each APK update.
+        String installation = id + "\n" + libraries.getAbsolutePath();
         File runtime = new File(parent, "runtime");
         File installed = new File(runtime, ".installed");
-        if (installed.isFile() && id.equals(new String(Files.readAllBytes(installed.toPath()), StandardCharsets.US_ASCII))) return runtime;
+        if (installed.isFile() && installation.equals(new String(
+                Files.readAllBytes(installed.toPath()), StandardCharsets.UTF_8))) return runtime;
         File staging = new File(parent, "runtime-staging");
         deleteTree(staging);
         directory(staging);
@@ -178,7 +182,6 @@ final class LocalEngine {
         try (var input = Files.newInputStream(new File(staging, "native.properties").toPath())) {
             links.load(input);
         }
-        File libraries = new File(context.getApplicationInfo().nativeLibraryDir);
         for (String relative : links.stringPropertyNames()) {
             File target = new File(staging, relative);
             if (!target.getCanonicalPath().startsWith(prefix)) throw new IOException("Invalid native entry");
@@ -188,7 +191,7 @@ final class LocalEngine {
                 Os.symlink(nativeFile.getAbsolutePath(), target.getAbsolutePath());
             }
         }
-        Files.write(new File(staging, ".installed").toPath(), id.getBytes(StandardCharsets.US_ASCII));
+        Files.write(new File(staging, ".installed").toPath(), installation.getBytes(StandardCharsets.UTF_8));
         deleteTree(runtime);
         if (!staging.renameTo(runtime)) throw new IOException("Cannot install the local engine");
         return runtime;
